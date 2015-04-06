@@ -1,0 +1,11 @@
+[General]
+outdir = /android/out
+
+[Build]
+version = 3.0 custom build (%s)
+# makeflags = -j4
+
+# Root directories of the AOSP source tree per SDK version
+[AospDir]
+19 = /android/aosp/440
+21 = /android/aosp/500
