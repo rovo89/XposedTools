@@ -490,7 +490,8 @@ sub create_zip($$) {
     $zip->addDirectory('system/framework/') || return 0;
     $zip->addFile("$outdir/java/XposedBridge.jar", 'system/framework/XposedBridge.jar') || return 0;
     # TODO: We probably need different files for older releases
-    $zip->addTree($Bin . '/zipstatic', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/_all', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/' . $platform, '') == AZ_OK || return 0;
 
     # Set last modification time to "now"
     my $now = time();
