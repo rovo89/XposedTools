@@ -26,7 +26,7 @@ If you have never built the native parts of Xposed before, you obviously need to
 ### Xposed source code
 Once you have the AOSP source ready, you can integrate the Xposed sources into it. There are at least three ways to do so:
 #### Local manifest
-This is probably the easiest way to get started. Go to the root directory of the AOSP directoy. Change into the `.repo` subdirectory and create a folder called `local_manifests`. Then create a symbolic link to one of the manifests that are included in this repository, e.g. `ln -s /path/to/this/repository/local_manifests/xposed_sdk21.xml .`. Afterwards, go back to the AOSP root directory and run `repo sync` again.
+This is probably the easiest way to get started. Go to the root directory of the AOSP directoy. Change into the `.repo` subdirectory and create a folder called `local_manifests`. Then create a symbolic link to one of the manifests that are included in this repository, e.g. `ln -s /path/to/this/repository/local_manifests/xposed_sdk21.xml .`. Afterwards, go back to the AOSP root directory and run `repo sync` again. This will also help to avoid some failures when compiling older Android versions on recent VMs.
 
 #### Manual cloning
 If you're afraid that `repo sync` might overwrite your changes or for some other reasons you don't want to use it, you can also clone the repositories manually. First, navigate to the `framework/base/cmds` directory and execute `git clone https://github.com/rovo89/Xposed.git xposed`. This repository contains the modified `app_process` executable and the `libxposed_*.so` files.
@@ -35,25 +35,6 @@ For variants that include ART, you will also need to replace `art` folder. Howev
 
 #### Bind mounting
 In case you have many AOSP trees and want to keep the Xposed source in sync for all of them (i.e. make one change and apply it to all SDKs immediately), you can also look into bind mounts. It's basically the same as manual cloning, but you clone the files into a separate directory and then use bind mounts to map them into the AOSP tree. This is a pretty advanced technique, so I won't go into details here.
-
-### Makefile patches
-This isn't related to Xposed, but you might experience difficulties to compile all the older Android versions on one VM.  You might have to patch `build/core/main.mk`:
-```diff
- # Check for broken versions of make.
- # (Allow any version under Cygwin since we don't actually build the platform there.)
- ifeq (,$(findstring CYGWIN,$(shell uname -sm)))
--ifeq (0,$(shell expr $$(echo $(MAKE_VERSION) | sed "s/[^0-9\.].*//") = 3.81))
--ifeq (0,$(shell expr $$(echo $(MAKE_VERSION) | sed "s/[^0-9\.].*//") = 3.82))
-+ifneq (1,$(strip $(shell expr $(MAKE_VERSION) \>= 3.81)))
- $(warning ********************************************************************************)
- $(warning *  You are using version $(MAKE_VERSION) of make.)
- $(warning *  Android can only be built by versions 3.81 and 3.82.)
-@@ -50,7 +49,6 @@ $(warning **********************************************************************
- $(error stopping)
- endif
- endif
--endif
-```
 
 ----------------------------------
 ## Configuration (build.conf)

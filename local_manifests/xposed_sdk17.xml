@@ -2,4 +2,6 @@
 <manifest>
   <remote name="github" fetch="https://github.com" />
   <project path="frameworks/base/cmds/xposed" name="rovo89/Xposed" remote="github" revision="master"/>
+  <remove-project name="platform/build" />
+  <project path="build" name="rovo89/platform_build" remote="github" revision="sdk17"/>
 </manifest>
