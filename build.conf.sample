@@ -9,3 +9,10 @@ version = 3.0 custom build (%s)
 [AospDir]
 19 = /android/aosp/440
 21 = /android/aosp/500
+
+# SDKs to be used for compiling BusyBox
+# Needs https://github.com/rovo89/android_external_busybox
+[BusyBox]
+arm = 21
+x86 = 21
+armv5 = 17
