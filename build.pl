@@ -330,7 +330,7 @@ sub create_zip($$) {
     print "$zipname\n";
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 
-    # TODO: Sign the resulting zip without breaking some "unzip" in some recoveries
+    Xposed::sign_zip($zipname);
 
     return 1;
 }

@@ -11,6 +11,7 @@ use Config::IniFiles;
 use File::Path qw(make_path);
 use File::ReadBackwards;
 use File::Tail;
+use FindBin qw($Bin);
 use POSIX qw(strftime);
 use Term::ANSIColor;
 
@@ -301,6 +302,15 @@ sub compile($$$$$;$$$) {
         print "\n";
         return 0;
     }
+}
+
+sub sign_zip($) {
+    my $file = shift;
+    my $signed = $file . '.signed';
+    my $cmd = "java -jar $Bin/signapk.jar -w $Bin/signkey.x509.pem $Bin/signkey.pk8 $file $signed";
+    system("bash -c \"$cmd\"") == 0 || return 0;
+    rename($signed, $file);
+    return 1;
 }
 
 1;
