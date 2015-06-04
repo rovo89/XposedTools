@@ -26,7 +26,7 @@ $| = 1;
 # Main routine
 sub main() {
     $Getopt::Std::STANDARD_HELP_VERSION = 1;
-    getopts('a:is:t:v', \%opts) || usage(2);
+    getopts('a:fis:t:v', \%opts) || usage(2);
 
     # Load the config file
     print_status("Loading config file $Bin/build.conf...", 0);
@@ -52,6 +52,12 @@ sub main() {
     }
 
     if ($action eq 'build') {
+        # Check whether flashing is possible
+        if ($opts{'f'} && $#targets != 0) {
+            print_error('Flashing is only supported for a single target!');
+            exit 1;
+        }
+
         # Build the specified targets
         foreach my $target (@targets) {
             all_in_one($target->{'platform'}, $target->{'sdk'}, !$opts{'v'}) || exit 1;
@@ -76,8 +82,9 @@ sub usage($) {
 
 This script helps to compile and package the Xposed executables and libraries.
 
-Usage: $0 [-v] [-i] [-a <action>][-t <targets>] [-s <steps>]
+Usage: $0 [-v] [-i] [-f] [-a <action>][-t <targets>] [-s <steps>]
   -a   Execute <action>. The default is "build".
+  -f   Flash the files after building and performs a soft reboot. Requires step "zip".
   -t   Build for targets specified in <targets>.
   -s   Limit build steps to <steps>. By default, all steps are performed.
   -i   Incremental build. Compile faster by skipping dependencies (like mm/mmm).
@@ -331,6 +338,17 @@ sub create_zip($$) {
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 
     Xposed::sign_zip($zipname);
+
+    # Flash the file (if requested)
+    if ($opts{'f'}) {
+        print_status("Flashing ZIP file...", 1);
+        system("adb push $zipname /data/local/tmp/xposed.zip") == 0 || return 0;
+        system("adb push $Bin/zipstatic/$platform/META-INF/com/google/android/update-binary /data/local/tmp/update-binary") == 0 || return 0;
+        system("adb shell 'chmod 700 /data/local/tmp/update-binary'") == 0  || return 0;
+        system("adb shell su -c 'NO_UIPRINT=1 /data/local/tmp/update-binary 2 1 /data/local/tmp/xposed.zip'") == 0  || return 0;
+        system("adb shell 'rm /data/local/tmp/update-binary /data/local/tmp/xposed.zip'") == 0 || return 0;
+        system("adb shell su -c 'stop; sleep 2; start'") == 0 || return 0;
+    }
 
     return 1;
 }
