@@ -177,6 +177,10 @@ sub compile($$;$) {
     return Xposed::compile($platform, $sdk, \@params, \@targets, \@makefiles, $opts{'i'}, $silent);
 }
 
+sub datestamp() {
+    return strftime('%Y%m%d', localtime());
+}
+
 # Collect final files into a single directory
 sub collect($$) {
     my $platform = shift;
@@ -333,7 +337,7 @@ sub create_zip($$) {
     }
 
     # Write the ZIP file to disk
-    my $zipname = sprintf('%s/xposed-sdk%d-%s.zip', $coldir, $sdk, $platform);
+    my $zipname = sprintf('%s/xposed-sdk%d-%s-%s.zip', $coldir, $sdk, $platform, datestamp());
     print "$zipname\n";
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 
