@@ -319,12 +319,12 @@ sub create_zip($$) {
     my $outdir = $Xposed::cfg->val('General', 'outdir');
     my $coldir = Xposed::get_collection_dir($platform, $sdk);
     make_path($coldir);
-    $zip->addTree($coldir . '/files', '') == AZ_OK || return 0;
+    $zip->addTree($coldir . '/files/', '') == AZ_OK || return 0;
     $zip->addDirectory('system/framework/') || return 0;
     $zip->addFile("$outdir/java/XposedBridge.jar", 'system/framework/XposedBridge.jar') || return 0;
     # TODO: We probably need different files for older releases
-    $zip->addTree($Bin . '/zipstatic/_all', '') == AZ_OK || return 0;
-    $zip->addTree($Bin . '/zipstatic/' . $platform, '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/_all/', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/' . $platform . '/', '') == AZ_OK || return 0;
 
     # Set last modification time to "now"
     my $now = time();

@@ -49,8 +49,8 @@ sub create_zip() {
 
     # Create a new ZIP file
     my $zip = Archive::Zip->new();
-    $zip->addTree($Bin . '/zipstatic/_uninstaller', '') == AZ_OK || return 0;
-    $zip->addTree($Bin . '/zipstatic/' . $platform, '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/_uninstaller/', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/' . $platform . '/', '') == AZ_OK || return 0;
 
     # Set last modification time to "now"
     my $now = time();
