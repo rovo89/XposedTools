@@ -275,7 +275,7 @@ sub create_xposed_prop($$;$) {
     }
 
     # Prepare variables
-    my $version = sprintf($Xposed::cfg->val('Build', 'version', 'Custom build (%s)'), strftime('%Y%m%d', localtime()));
+    my $version = sprintf($Xposed::cfg->val('Build', 'version'), strftime('%Y%m%d', localtime()));
     if ($platform eq 'armv5') {
         $platform = 'arm';
     }
@@ -333,7 +333,16 @@ sub create_zip($$) {
     }
 
     # Write the ZIP file to disk
-    my $zipname = sprintf('%s/xposed-sdk%d-%s.zip', $coldir, $sdk, $platform);
+    $Xposed::cfg->val('Build', 'version') =~ m/^(\d+)(.*)/;
+    my ($version, $suffix) = ($1, $2);
+    if ($suffix) {
+        $suffix = sprintf($suffix, strftime('%Y%m%d', localtime()));
+        $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
+        $suffix =~ s/-{2,}/-/g;
+        $suffix =~ s/^-|-$//g;
+        $suffix = '-' . $suffix if $suffix;
+    }
+    my $zipname = sprintf('%s/xposed-v%d-sdk%d-%s%s.zip', $coldir, $version, $sdk, $platform, $suffix);
     print "$zipname\n";
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 

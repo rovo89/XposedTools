@@ -2,7 +2,8 @@
 outdir = /android/out
 
 [Build]
-version = 3.0 custom build (%s)
+# Please keep the base version number and add your custom suffix
+version = 65 (custom build by xyz / %s)
 # makeflags = -j4
 
 # Root directories of the AOSP source tree per SDK version

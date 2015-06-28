@@ -26,7 +26,7 @@ If you have never built the native parts of Xposed before, you obviously need to
 ### Xposed source code
 Once you have the AOSP source ready, you can integrate the Xposed sources into it. There are at least three ways to do so:
 #### Local manifest
-This is probably the easiest way to get started. Go to the root directory of the AOSP directoy. Change into the `.repo` subdirectory and create a folder called `local_manifests`. Then create a symbolic link to one of the manifests that are included in this repository, e.g. `ln -s /path/to/this/repository/local_manifests/xposed_sdk21.xml .`. Afterwards, go back to the AOSP root directory and run `repo sync` again. This will also help to avoid some failures when compiling older Android versions on recent VMs.
+This is probably the easiest way to get started. Go to the root directory of the AOSP directory. Change into the `.repo` subdirectory and create a folder called `local_manifests`. Then create a symbolic link to one of the manifests that are included in this repository, e.g. `ln -s /path/to/this/repository/local_manifests/xposed_sdk21.xml .`. Afterwards, go back to the AOSP root directory and run `repo sync` again. This will also help to avoid some failures when compiling older Android versions on recent VMs.
 
 #### Manual cloning
 If you're afraid that `repo sync` might overwrite your changes or for some other reasons you don't want to use it, you can also clone the repositories manually. First, navigate to the `framework/base/cmds` directory and execute `git clone https://github.com/rovo89/Xposed.git xposed`. This repository contains the modified `app_process` executable and the `libxposed_*.so` files.
@@ -45,11 +45,14 @@ As the configuration is specific to your local machine, it's not included in the
 **outdir:** The output directory for compiled files. All Xposed-specific executables/libraries are copied here, and it's used to store log files and the flashable ZIP. This directory must exist.
 
 ##### [Build]
-**version:** The human-readable version number that is stored in the `xposed.prop` file. Use the placeholder `%s` to insert the current date in `YYYYMMDD` format.
+**version:** The version number that is stored in the `/system/xposed.prop` file. It's displayed in various places, e.g. while flashing the ZIP file or in the installer. It's also the API version for Xposed, so please make sure that you use the version number that your build is based on. You're free to add any custom suffix with your own version number. You can use the placeholder `%s` to insert the current date in `YYYYMMDD` format.
 **makeflags**: Additional parameters to pass to each `make` command. The default value is `-j4`, which enables parallel build with 4 jobs.
 
 ##### [AospDir]
 The parameters in this section tell the build script where the AOSP source trees (see above) are stored for each Android version. The key is the SDK version, the value is the directory.
+
+##### [BusyBox]
+In case you want to compile the specialized BusyBox fork from https://github.com/rovo89/android_external_busybox, you have to add a mapping of platform to an Android SDK version. In the source tree for this SDK version, you have to check out the project into the folder `external/busybox`.
 
 ### XposedBridge.jar
 At this time, it's not possible to build the Java side of framework, `XposedBridge.jar` with the build script. Instead, you have to place the prebuilt file in a  `java` subfolder in the `outdir` that you have configured in `build.conf`.
