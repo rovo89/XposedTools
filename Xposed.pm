@@ -82,6 +82,10 @@ sub check_requirements() {
         print_error('[Build][version] must begin with an integer');
         return 0;
     }
+    if ($version =~ m/^\d+\s*$/ && !$cfg->val('Build', 'official')) {
+        print_error('[Build][version] should contain your custom suffix');
+        return 0;
+    }
     return 1;
 }
 
