@@ -28,7 +28,7 @@ set_perm() {
   if [ "$5" ]; then
     chcon $5 $1 2>/dev/null
   else
-    restorecon $1 2>/dev/null
+    chcon 'u:object_r:system_file:s0' $1 2>/dev/null
   fi
 }
 

@@ -28,7 +28,7 @@ set_perm() {
   if [ "$5" ]; then
     chcon $5 $1 2>/dev/null
   else
-    restorecon $1 2>/dev/null
+    chcon 'u:object_r:system_file:s0' $1 2>/dev/null
   fi
 }
 
@@ -47,6 +47,7 @@ install_and_link() {
   if [ ! -f $BACKUP ]; then
     mv $TARGET $BACKUP || exit 1
     ln -s $XPOSED $TARGET || exit 1
+    chcon -h 'u:object_r:system_file:s0' $TARGET 2>/dev/null
   fi
 }
 
