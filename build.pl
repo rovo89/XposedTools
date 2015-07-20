@@ -192,6 +192,7 @@ sub collect($$) {
 
     # Clear collection directory
     remove_tree($coldir . '/files');
+    return 0 if -e $coldir . '/files';
 
     # Copy files
     my $files = get_compiled_files($platform, $sdk);
