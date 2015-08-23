@@ -276,7 +276,8 @@ sub create_xposed_prop($$;$) {
     }
 
     # Prepare variables
-    my $version = sprintf($Xposed::cfg->val('Build', 'version'), strftime('%Y%m%d', localtime()));
+    my $version = $Xposed::cfg->val('Build', 'version');
+    $version = sprintf($version, strftime('%Y%m%d', localtime())) if $version =~ m/%s/;
     if ($platform eq 'armv5') {
         $platform = 'arm';
     }
