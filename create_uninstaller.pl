@@ -60,7 +60,7 @@ sub create_zip() {
 
     # Write the ZIP file to disk
     my $outdir = $Xposed::cfg->val('General', 'outdir');
-    my $zipname = sprintf('%s/uninstaller/xposed-uninstaller-%s.zip', $outdir, $platform);
+    my $zipname = sprintf('%s/uninstaller/xposed-uninstaller-%s-%s.zip', $outdir, strftime('%Y%m%d', localtime()), $platform);
     make_path(dirname($zipname));
 
     print "$zipname\n";
