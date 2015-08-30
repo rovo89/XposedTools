@@ -77,9 +77,11 @@ if [ ! -f "system/xposed.prop" ]; then
   exit 1
 fi
 
-echo "- Mounting /system read-write"
+echo "- Mounting /system and /vendor read-write"
 mount /system >/dev/null 2>&1
+mount /vendor >/dev/null 2>&1
 mount -o remount,rw /system
+mount -o remount,rw /vendor >/dev/null 2>&1
 if [ ! -f '/system/build.prop' ]; then
   echo "! Failed: /system could not be mounted!"
   exit 1
@@ -155,6 +157,10 @@ if [ $IS64BIT ]; then
   install_overwrite /system/lib64/libart-disassembler.so  0    0 0644
   install_overwrite /system/lib64/libsigchain.so          0    0 0644
   install_overwrite /system/lib64/libxposed_art.so        0    0 0644
+fi
+
+if [ "$API" -ge "22" ]; then
+  find /system /vendor -type f -name '*.odex.gz' 2>/dev/null | while read f; do mv "$f" "$f.xposed"; done
 fi
 
 echo "- Done"
