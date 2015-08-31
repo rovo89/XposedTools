@@ -73,8 +73,15 @@ install_overwrite() {
   NO_ORIG="${1}.no_orig"
   if [ ! -f $TARGET ]; then
     touch $NO_ORIG || exit 1
-  elif [ ! -f $BACKUP -a ! -f $NO_ORIG ]; then
+    set_perm $NO_ORIG 0 0 600
+  elif [ -f $BACKUP ]; then
+    rm -f $TARGET
+    gzip $BACKUP || exit 1
+    set_perm "${BACKUP}.gz" 0 0 600
+  elif [ ! -f "${BACKUP}.gz" -a ! -f $NO_ORIG ]; then
     mv $TARGET $BACKUP || exit 1
+    gzip $BACKUP || exit 1
+    set_perm "${BACKUP}.gz" 0 0 600
   fi
   cp_perm ./$TARGET $TARGET $2 $3 $4 $5
 }
