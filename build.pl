@@ -142,9 +142,11 @@ sub all_in_one($$;$) {
     print_status("Processing SDK $sdk, platform $platform...", 0);
 
     compile($platform, $sdk, $silent) || return 0;
-    collect($platform, $sdk) || return 0;
-    create_xposed_prop($platform, $sdk, !$silent) || return 0;
-    create_zip($platform, $sdk) || return 0;
+    if ($platform ne 'host' && $platform ne 'hostd') {
+        collect($platform, $sdk) || return 0;
+        create_xposed_prop($platform, $sdk, !$silent) || return 0;
+        create_zip($platform, $sdk) || return 0;
+    }
 
     print "\n\n";
 
@@ -174,7 +176,28 @@ sub compile($$;$) {
         push @makefiles, qw(art/Android.mk);
     }
 
-    return Xposed::compile($platform, $sdk, \@params, \@targets, \@makefiles, $opts{'i'}, $silent);
+    if ($platform eq 'host') {
+        $ENV{'ART_BUILD_HOST_NDEBUG'} = 'true';
+        @targets = qw(
+            out/host/linux-x86/bin/dex2oat
+            out/host/linux-x86/bin/oatdump
+        );
+        @makefiles = qw(art/Android.mk);
+    } elsif ($platform eq 'hostd') {
+        $ENV{'ART_BUILD_HOST_DEBUG'} = 'true';
+        @targets = qw(
+            out/host/linux-x86/bin/dex2oatd
+            out/host/linux-x86/bin/oatdumpd
+        );
+        @makefiles = qw(art/Android.mk);
+    }
+
+    my $result = Xposed::compile($platform, $sdk, \@params, \@targets, \@makefiles, $opts{'i'}, $silent);
+
+    delete($ENV{'ART_BUILD_HOST_NDEBUG'});
+    delete($ENV{'ART_BUILD_HOST_DEBUG'});
+
+    return $result;
 }
 
 # Collect final files into a single directory

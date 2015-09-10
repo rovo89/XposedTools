@@ -161,6 +161,12 @@ sub check_target_sdk_platform($$;$) {
             print_error('arm64 builds are not supported prior to Android 5.0 (SDK 21)') unless $wildcard;
             return 0;
         }
+    } elsif ($platform eq 'host' || $platform eq 'hostd') {
+        return 0 if $wildcard;
+        if ($sdk < 21) {
+            print_error('host builds are not supported prior to Android 5.0 (SDK 21)');
+            return 0;
+        }
     } elsif ($platform ne 'arm' && $platform ne 'x86') {
         print_error("Unsupported target platform $platform");
         return 0;
@@ -218,7 +224,7 @@ sub get_lunch_mode($$) {
     my $platform = shift;
     my $sdk = shift;
 
-    if ($platform eq 'arm' || $platform eq 'armv5') {
+    if ($platform eq 'arm' || $platform eq 'armv5' || $platform eq 'host' || $platform eq 'hostd') {
         return ($sdk <= 17) ? 'full-eng' : 'aosp_arm-eng';
     } elsif ($platform eq 'x86') {
         return ($sdk <= 17) ? 'full_x86-eng' : 'aosp_x86-eng';
@@ -261,7 +267,6 @@ sub compile($$$$$;$$$) {
 
     # Initialize some general build parameters
     my $rootdir = get_rootdir($sdk) || return 0;
-    my $outdir = get_outdir($platform) || return 0;
     my $lunch_mode = get_lunch_mode($platform, $sdk) || return 0;
 
     # Build the command string
