@@ -375,6 +375,13 @@ sub create_zip($$) {
 
     Xposed::sign_zip($zipname);
 
+    # Create a stable symlink to the latest version
+    my $latest = $coldir . '/latest.zip';
+    unlink($latest);
+    if (!symlink(basename($zipname), $latest)) {
+        print_error("Could not create link to latest version: $!");
+    }
+
     # Flash the file (if requested)
     if ($opts{'f'}) {
         print_status("Flashing ZIP file...", 1);
