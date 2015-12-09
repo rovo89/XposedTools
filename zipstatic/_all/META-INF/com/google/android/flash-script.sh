@@ -26,6 +26,7 @@ android_version() {
     19) echo '4.4 / SDK'$1;;
     21) echo '5.0 / SDK'$1;;
     22) echo '5.1 / SDK'$1;;
+    23) echo '6.0 / SDK'$1;;
     *)  echo 'SDK'$1;;
   esac
 }
