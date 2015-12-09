@@ -86,7 +86,7 @@ sub build($$;$) {
         return 0;
     }
 
-    my @params = Xposed::get_make_parameters($platform);
+    my @params = Xposed::get_make_parameters($platform, $sdk);
     push @params, 'XPOSED_BUILD_STATIC=true';
     my @targets = qw(xposed_busybox);
     my @makefiles = qw(external/busybox/Android.mk);

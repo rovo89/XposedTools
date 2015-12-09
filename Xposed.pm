@@ -237,8 +237,9 @@ sub get_lunch_mode($$) {
 }
 
 # Get default make parameters
-sub get_make_parameters($) {
+sub get_make_parameters($$) {
     my $platform = shift;
+    my $sdk = shift;
 
     my @params = split(m/\s+/, $cfg->val('Build', 'makeflags', '-j4'));
 
@@ -248,8 +249,10 @@ sub get_make_parameters($) {
         push @params, 'TARGET_ARCH_VARIANT=armv5te';
         push @params, 'ARCH_ARM_HAVE_TLS_REGISTER=false';
         push @params, 'TARGET_CPU_SMP=false';
-    } else {
+    } elsif ($sdk < 23) {
         push @params, 'TARGET_CPU_SMP=true';
+    } elsif ($platform eq 'x86') {
+        push @params, 'arch_variant_cflags=\'-march=prescott -mno-ssse3\'';
     }
 
     return @params;
