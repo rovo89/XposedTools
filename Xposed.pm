@@ -126,7 +126,12 @@ sub expand_targets($;$) {
     my %seen;
     foreach (split(m/[\/ ]+/, $spec)) {
         my ($pfspec, $sdkspec) = split(m/[: ]+/, $_, 2);
-        my @pflist = ($pfspec ne 'all') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
+        my @pflist = ($pfspec ne 'all' && $pfspec ne 'all+') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
+        if ($pfspec eq 'all+') {
+            push @pflist, 'host';
+            push @pflist, 'hostd';
+            $pfspec = 'all';
+        }
         my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
         foreach my $sdk (@sdklist) {
             foreach my $pf (@pflist) {
@@ -162,9 +167,8 @@ sub check_target_sdk_platform($$;$) {
             return 0;
         }
     } elsif ($platform eq 'host' || $platform eq 'hostd') {
-        return 0 if $wildcard;
         if ($sdk < 21) {
-            print_error('host builds are not supported prior to Android 5.0 (SDK 21)');
+            print_error('host builds are not supported prior to Android 5.0 (SDK 21)') unless $wildcard;
             return 0;
         }
     } elsif ($platform ne 'arm' && $platform ne 'x86') {
