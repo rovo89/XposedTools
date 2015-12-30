@@ -37,21 +37,17 @@ sub main() {
     Xposed::check_requirements() || exit 1;
 
     my $action = $opts{'a'} || 'build';
-
-    # Determine build targets
-    my @targets;
-    if ($action eq 'build' || $action eq 'prunelogs') {
+    if ($action eq 'build') {
+        # Determine build targets
         my $target_spec = $opts{'t'} || '';
         print_status("Expanding targets from '$target_spec'...", 0);
-        @targets = Xposed::expand_targets($target_spec, 1);
+        my @targets = Xposed::expand_targets($target_spec, 1);
         if (!@targets) {
             print_error('No valid targets specified');
             usage(2);
         }
         print "\n";
-    }
 
-    if ($action eq 'build') {
         # Check whether flashing is possible
         if ($opts{'f'} && $#targets != 0) {
             print_error('Flashing is only supported for a single target!');
@@ -64,9 +60,7 @@ sub main() {
         }
     } elsif ($action eq 'prunelogs') {
         # Remove old logs
-        foreach my $target (@targets) {
-            prune_logs($target->{'platform'}, $target->{'sdk'});
-        }
+        prune_logs() || exit 1;
     } else {
         print_error("Unknown action specified: $action");
         usage(2);
@@ -397,31 +391,33 @@ sub create_zip($$) {
 }
 
 # Remove old logs
-sub prune_logs($$) {
-    my $platform = shift;
-    my $sdk = shift;
+sub prune_logs(;$) {
     my $cutoff = shift || (time() - 86400);
+    print_status('Cleaning log files...', 0);
 
-    my $logdir = Xposed::get_collection_dir($platform, $sdk) . '/logs';
-    return if !-d $logdir;
+    foreach my $logdir (glob($Xposed::cfg->val('General', 'outdir') . '/sdk*/*/logs/')) {
+        print_status("Cleaning $logdir...", 1);
 
-    print_status("Cleaning $logdir...", 1);
-
-    opendir(DIR, $logdir) || return;
-    foreach my $file (sort readdir(DIR)) {
-        next if ($file !~ m/\.log$/);
-        my $filepath = $logdir . '/' . $file;
-        my $modtime = (stat($filepath))[9];
-        if ($modtime < $cutoff) {
-            print "[REMOVE]  $file\n";
-            unlink($filepath);
-        } else {
-            print "[KEEP]    $file\n";
+        my $removed = 0;
+        opendir(DIR, $logdir) || next;
+        foreach my $file (sort readdir(DIR)) {
+            next if ($file !~ m/\.log$/);
+            my $filepath = $logdir . '/' . $file;
+            my $modtime = (stat($filepath))[9];
+            if ($modtime < $cutoff) {
+                print "[REMOVE]  $file\n";
+                unlink($filepath);
+                $removed = 1;
+            } else {
+                print "[KEEP]    $file\n";
+            }
         }
-    }
-    closedir(DIR);
+        closedir(DIR);
 
-    print "\n";
+        print "\n" if $removed;
+    }
+
+    return 1;
 }
 
 main();
