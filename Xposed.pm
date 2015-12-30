@@ -72,11 +72,6 @@ sub check_requirements() {
         print_error('[General][outdir] must point to a directory');
         return 0;
     }
-    my $jar = "$outdir/java/XposedBridge.jar";
-    if (!-r $jar) {
-        print_error("$jar doesn't exist or isn't readable");
-        return 0;
-    }
     my $version = $cfg->val('Build', 'version');
     if (!$version || $version !~ m/^\d+/) {
         print_error('[Build][version] must begin with an integer');

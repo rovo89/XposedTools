@@ -38,6 +38,12 @@ sub main() {
 
     my $action = $opts{'a'} || 'build';
     if ($action eq 'build') {
+        my $jar = $Xposed::cfg->val('General', 'outdir') . '/java/XposedBridge.jar';
+        if (!-r $jar) {
+            print_error("$jar doesn't exist or isn't readable");
+            exit 1;
+        }
+
         # Determine build targets
         my $target_spec = $opts{'t'} || '';
         print_status("Expanding targets from '$target_spec'...", 0);
@@ -58,6 +64,9 @@ sub main() {
         foreach my $target (@targets) {
             all_in_one($target->{'platform'}, $target->{'sdk'}, !$opts{'v'}) || exit 1;
         }
+    } elsif ($action eq 'java') {
+        # Build XposedBridge.jar
+        build_java() || exit 1;
     } elsif ($action eq 'prunelogs') {
         # Remove old logs
         prune_logs() || exit 1;
@@ -86,6 +95,7 @@ Usage: $0 [-v] [-i] [-f] [-a <action>][-t <targets>] [-s <steps>]
 
 Possible actions are:
   build       Builds the native executables and libraries.
+  java        Builds the Java part (XposedBridge).
   prunelogs   Removes logs which are older than 24 hours.
 
 Format of <targets> is: <platform>:<sdk>[/<platform2>:<sdk2>/...]
@@ -388,6 +398,43 @@ sub create_zip($$) {
     }
 
     return 1;
+}
+
+# Build XposedBridge.jar
+sub build_java() {
+    print_status('Building the Java part...', 0);
+    my $javadir = $Xposed::cfg->val('General', 'javadir');
+    if (!-d $javadir) {
+        print_error('[General][javadir] must point to a directory');
+        return 0;
+    }
+
+    print_status('Compiling...', 1);
+    chdir($javadir);
+    system('gradle app:assembleRelease') == 0 || return 0;
+    print "\n";
+
+    print_status('Copying APK to XposedBridge.jar...', 1);
+    my $base = $javadir . '/app/build/outputs/apk/app-release';
+    foreach my $suffix ('.apk', '-unaligned.apk', '-unsigned.apk') {
+        my $file = $base . $suffix;
+        if (-f $file) {
+            my $target = $Xposed::cfg->val('General', 'outdir') . '/java/XposedBridge.jar';
+            print "$file => $target\n";
+            make_path(dirname($target));
+            if (!copy($file, $target)) {
+                print_error("Copy failed: $!");
+                return 0;
+            }
+            print "\n";
+            return 1;
+        } else {
+           print "Skipping non-existent $file\n";
+        }
+    }
+
+    print_error('No suitable file found, please check the build results');
+    return 0;
 }
 
 # Remove old logs

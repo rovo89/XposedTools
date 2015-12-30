@@ -14,6 +14,8 @@ This script can perform the following steps:
 - Create the `xposed.prop` file that serves as label for the published package.
 - Create a flashable ZIP file to install the Xposed framework.
 
+It can also compile the Java part of the framework, called `XposedBridge.jar`.
+
 You can call `./build.pl --help` to get a list of allowed options. Usually, it's enough to specify the `-t` option, e.g `./build.pl -t arm,x86:21` to build ARM and x86 files for SDK 21 (Android 5.0).
 
  > You will need to have Perl installed to run this script. It also requires some Perl modules, some of which might not be pre-installed. Depending on your distribution, you can install them using your OS package manager (like apt-get, packages could be named `lib*-perl`) or via `cpan <modulename>`. Please look up the details for your installation yourself.
@@ -36,6 +38,11 @@ For variants that include ART, you will also need to replace `art` folder. Howev
 #### Bind mounting
 In case you have many AOSP trees and want to keep the Xposed source in sync for all of them (i.e. make one change and apply it to all SDKs immediately), you can also look into bind mounts. It's basically the same as manual cloning, but you clone the files into a separate directory and then use bind mounts to map them into the AOSP tree. This is a pretty advanced technique, so I won't go into details here.
 
+### XposedBridge source code (or prebuilt file)
+If you want to compile `XposedBridge.jar` yourself, clone https://github.com/rovo89/XposedBridge and set the `javadir` variable accordingly. Make sure that the Gradle build is working fine, the Android SDK and other dependencies need to be installed for this. Then you can call `./build.pl -a java` to build and copy the JAR.
+
+If you want to use a prebuilt file instead, copy it to a `java` subfolder in the `outdir` that you have configured in `build.conf`. For example, if `outdir` is set to `/android/out`, then the file should be stored in `/android/out/java/XposedBridge.jar`.
+
 ----------------------------------
 ## Configuration (build.conf)
 The `build.pl` script requires some configuration. The settings are stored in INI file format in `build.conf`.
@@ -43,6 +50,7 @@ As the configuration is specific to your local machine, it's not included in the
 
 ##### [General]
 **outdir:** The output directory for compiled files. All Xposed-specific executables/libraries are copied here, and it's used to store log files and the flashable ZIP. This directory must exist.
+**javadir:** (Optional) The directory that XposedBridge has been checked out to (see above).
 
 ##### [Build]
 **version:** The version number that is stored in the `/system/xposed.prop` file. It's displayed in various places, e.g. while flashing the ZIP file or in the installer. It's also the API version for Xposed, so please make sure that you use the version number that your build is based on. You're free to add any custom suffix with your own version number. You can use the placeholder `%s` to insert the current date in `YYYYMMDD` format.
@@ -53,7 +61,3 @@ The parameters in this section tell the build script where the AOSP source trees
 
 ##### [BusyBox]
 In case you want to compile the specialized BusyBox fork from https://github.com/rovo89/android_external_busybox, you have to add a mapping of platform to an Android SDK version. In the source tree for this SDK version, you have to check out the project into the folder `external/busybox`.
-
-### XposedBridge.jar
-At this time, it's not possible to build the Java side of framework, `XposedBridge.jar` with the build script. Instead, you have to place the prebuilt file in a  `java` subfolder in the `outdir` that you have configured in `build.conf`.
-For example, if `outdir` is set to `/android/out`, then the file should be stored in `/android/out/java/XposedBridge.jar`.

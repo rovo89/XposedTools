@@ -1,5 +1,6 @@
 [General]
 outdir = /android/out
+javadir = /android/XposedBridge
 
 [Build]
 # Please keep the base version number and add your custom suffix
