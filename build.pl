@@ -411,7 +411,7 @@ sub build_java() {
 
     print_status('Compiling...', 1);
     chdir($javadir);
-    system('gradle app:assembleRelease') == 0 || return 0;
+    system('./gradlew app:assembleRelease lint') == 0 || return 0;
     print "\n";
 
     print_status('Copying APK to XposedBridge.jar...', 1);
