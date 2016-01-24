@@ -367,7 +367,7 @@ sub create_zip($$) {
     $Xposed::cfg->val('Build', 'version') =~ m/^(\d+)(.*)/;
     my ($version, $suffix) = ($1, $2);
     if ($suffix) {
-        $suffix = sprintf($suffix, strftime('%Y%m%d', localtime()));
+        $suffix = sprintf($suffix, strftime('%Y%m%d', localtime())) if $suffix =~ m/%s/;
         $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
         $suffix =~ s/-{2,}/-/g;
         $suffix =~ s/^-|-$//g;
