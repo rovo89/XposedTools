@@ -26,7 +26,8 @@ $| = 1;
 # Main routine
 sub main() {
     $Getopt::Std::STANDARD_HELP_VERSION = 1;
-    getopts('a:fis:t:v', \%opts) || usage(2);
+    getopts('a:firs:t:v', \%opts) || usage(2);
+    $opts{'r'} //= 0;
 
     # Load the config file
     print_status("Loading config file $Bin/build.conf...", 0);
@@ -85,10 +86,11 @@ sub usage($) {
 
 This script helps to compile and package the Xposed executables and libraries.
 
-Usage: $0 [-v] [-i] [-f] [-a <action>][-t <targets>] [-s <steps>]
+Usage: $0 [-v] [-i] [-f] [-a <action>][-t <targets>] [-s <steps>] [-r]
   -a   Execute <action>. The default is "build".
   -f   Flash the files after building and performs a soft reboot. Requires step "zip".
   -t   Build for targets specified in <targets>.
+  -r   Mark this as a release build. Currently only affects GPG signing.
   -s   Limit build steps to <steps>. By default, all steps are performed.
   -i   Incremental build. Compile faster by skipping dependencies (like mm/mmm).
   -v   Verbose mode. Display the build log instead of redirecting it to a file.
@@ -378,6 +380,7 @@ sub create_zip($$) {
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 
     Xposed::sign_zip($zipname);
+    Xposed::gpg_sign($zipname, $opts{'r'});
 
     # Create a stable symlink to the latest version
     my $latest = $coldir . '/latest.zip';

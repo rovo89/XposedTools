@@ -45,16 +45,20 @@ If you want to use a prebuilt file instead, copy it to a `java` subfolder in the
 
 ----------------------------------
 ## Configuration (build.conf)
-The `build.pl` script requires some configuration. The settings are stored in INI file format in `build.conf`.
+The `build.pl` script requires some configuration. The settings are stored in INI file format in `build.conf`.  
 As the configuration is specific to your local machine, it's not included in the GitHub repository. There is, however, a file called [`build.conf.sample`](build.conf.sample) with some examples. You can either copy it to `build.conf` or create your own file based on it.
 
 ##### [General]
-**outdir:** The output directory for compiled files. All Xposed-specific executables/libraries are copied here, and it's used to store log files and the flashable ZIP. This directory must exist.
-**javadir:** (Optional) The directory that XposedBridge has been checked out to (see above).
+**outdir:** The output directory for compiled files. All Xposed-specific executables/libraries are copied here, and it's used to store log files and the flashable ZIP. This directory must exist.  
+**javadir:** *(Optional)* The directory that XposedBridge has been checked out to (see above).  
 
 ##### [Build]
-**version:** The version number that is stored in the `/system/xposed.prop` file. It's displayed in various places, e.g. while flashing the ZIP file or in the installer. It's also the API version for Xposed, so please make sure that you use the version number that your build is based on. You're free to add any custom suffix with your own version number. You can use the placeholder `%s` to insert the current date in `YYYYMMDD` format.
-**makeflags**: Additional parameters to pass to each `make` command. The default value is `-j4`, which enables parallel build with 4 jobs.
+**version:** The version number that is stored in the `/system/xposed.prop` file. It's displayed in various places, e.g. while flashing the ZIP file or in the installer. It's also the API version for Xposed, so please make sure that you use the version number that your build is based on. You're free to add any custom suffix with your own version number. You can use the placeholder `%s` to insert the current date in `YYYYMMDD` format.  
+**makeflags**: Additional parameters to pass to each `make` command. The default value is `-j4`, which enables parallel build with 4 jobs.  
+
+##### [GPG]
+**sign:** *(Optional)* Might be `all` to sign all build, or `release` to sign only release builds (`-r` parameter) using `gpg -ab <file>`.  
+**user:** *(Optional)* This is passed as `-u` parameter to the `gpg` command, see its man page for allowed formats.  
 
 ##### [AospDir]
 The parameters in this section tell the build script where the AOSP source trees (see above) are stored for each Android version. The key is the SDK version, the value is the directory.

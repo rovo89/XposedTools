@@ -7,6 +7,10 @@ javadir = /android/XposedBridge
 version = 65 (custom build by xyz / %s)
 # makeflags = -j4
 
+[GPG]
+sign = release
+user = 852109AA!
+
 # Root directories of the AOSP source tree per SDK version
 [AospDir]
 19 = /android/aosp/440
