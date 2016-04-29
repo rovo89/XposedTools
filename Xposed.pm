@@ -174,6 +174,29 @@ sub check_target_sdk_platform($$;$) {
     return 1;
 }
 
+# Returns the Xposed version
+sub get_version() {
+    my $version = $Xposed::cfg->val('Build', 'version');
+    if ($version =~ m/%s/) {
+        $version = sprintf($version, strftime('%Y%m%d', localtime()));
+    }
+    return $version;
+}
+
+# Returns the Xposed version number and the suffix to be used in file names
+sub get_version_for_filename(;$) {
+    my $version = shift || get_version();
+    $version =~ m/^(\d+)(.*)/;
+    my ($version_num, $suffix) = ($1, $2);
+    if ($suffix) {
+        $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
+        $suffix =~ s/-{2,}/-/g;
+        $suffix =~ s/^-|-$//g;
+        $suffix = '-' . $suffix if $suffix;
+    }
+    return ($version_num, $suffix);
+}
+
 # Returns the root of the AOSP tree for the specified SDK
 sub get_rootdir($) {
     my $sdk = shift;
@@ -216,6 +239,12 @@ sub get_collection_dir($$) {
     my $platform = shift;
     my $sdk = shift;
     return sprintf('%s/sdk%d/%s', $cfg->val('General', 'outdir'), $sdk, $platform);
+}
+
+# Returns the directory to store symlinks to the ZIPs per versions
+sub get_version_dir(;$) {
+    my ($version, $suffix) = get_version_for_filename(shift);
+    return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
 }
 
 # Determines the mode that has to be passed to the "lunch" command

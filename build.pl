@@ -307,8 +307,7 @@ sub create_xposed_prop($$;$) {
     }
 
     # Prepare variables
-    my $version = $Xposed::cfg->val('Build', 'version');
-    $version = sprintf($version, strftime('%Y%m%d', localtime())) if $version =~ m/%s/;
+    my $version = Xposed::get_version();
     if ($platform eq 'armv5') {
         $platform = 'arm';
     }
@@ -366,33 +365,35 @@ sub create_zip($$) {
     }
 
     # Write the ZIP file to disk
-    $Xposed::cfg->val('Build', 'version') =~ m/^(\d+)(.*)/;
-    my ($version, $suffix) = ($1, $2);
-    if ($suffix) {
-        $suffix = sprintf($suffix, strftime('%Y%m%d', localtime())) if $suffix =~ m/%s/;
-        $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
-        $suffix =~ s/-{2,}/-/g;
-        $suffix =~ s/^-|-$//g;
-        $suffix = '-' . $suffix if $suffix;
-    }
-    my $zipname = sprintf('%s/xposed-v%d-sdk%d-%s%s.zip', $coldir, $version, $sdk, $platform, $suffix);
-    print "$zipname\n";
-    $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
+    my ($version, $suffix) = Xposed::get_version_for_filename();
+    my $zipname = sprintf('xposed-v%d-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    my $zippath = $coldir . '/' . $zipname;
+    print "$zippath\n";
+    $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
 
-    Xposed::sign_zip($zipname);
-    Xposed::gpg_sign($zipname, $opts{'r'});
+    Xposed::sign_zip($zippath);
+    Xposed::gpg_sign($zippath, $opts{'r'});
 
     # Create a stable symlink to the latest version
-    my $latest = $coldir . '/latest.zip';
-    unlink($latest);
-    if (!symlink(basename($zipname), $latest)) {
-        print_error("Could not create link to latest version: $!");
+    my $latestlink = $coldir . '/latest.zip';
+    unlink($latestlink);
+    if (!symlink($zipname, $latestlink)) {
+        print_error("Could not create link $latestlink -> $zipname: $!");
+    }
+
+    # Create a symlink in a version-specific directory for easier collection
+    my $versiondir = Xposed::get_version_dir();
+    my $versionlink = $versiondir . '/' . $zipname;
+    make_path($versiondir);
+    unlink($versionlink);
+    if (!symlink($zippath, $versionlink)) {
+        print_error("Could not create link $versionlink -> $zippath: $!");
     }
 
     # Flash the file (if requested)
     if ($opts{'f'}) {
         print_status("Flashing ZIP file...", 1);
-        system("adb push $zipname /data/local/tmp/xposed.zip") == 0 || return 0;
+        system("adb push $zippath /data/local/tmp/xposed.zip") == 0 || return 0;
         system("adb push $Bin/zipstatic/$platform/META-INF/com/google/android/update-binary /data/local/tmp/update-binary") == 0 || return 0;
         system("adb shell 'chmod 700 /data/local/tmp/update-binary'") == 0  || return 0;
         system("adb shell su -c 'NO_UIPRINT=1 /data/local/tmp/update-binary 2 1 /data/local/tmp/xposed.zip'") == 0  || return 0;
