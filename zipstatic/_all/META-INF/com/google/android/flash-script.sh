@@ -174,7 +174,7 @@ install_overwrite /system/lib/libart.so                   0    0 0644
 install_overwrite /system/lib/libart-compiler.so          0    0 0644
 install_overwrite /system/lib/libart-disassembler.so      0    0 0644
 install_overwrite /system/lib/libsigchain.so              0    0 0644
-install_overwrite /system/lib/libxposed_art.so            0    0 0644
+install_nobackup  /system/lib/libxposed_art.so            0    0 0644
 if [ $IS64BIT ]; then
   install_and_link /system/bin/app_process64              0 2000 0755 u:object_r:zygote_exec:s0
   install_overwrite /system/lib64/libart.so               0    0 0644
