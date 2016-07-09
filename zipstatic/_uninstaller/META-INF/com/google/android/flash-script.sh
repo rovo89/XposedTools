@@ -47,16 +47,12 @@ restore_link() {
 restore_backup() {
   TARGET=$1
   BACKUP="${1}.orig"
-  NO_ORIG="${1}.no_orig"
   if [ -f $BACKUP ]; then
     mv_perm $BACKUP $TARGET $2 $3 $4 $5
-    rm -f $NO_ORIG
   elif [ -f "${BACKUP}.gz" ]; then
-    rm -f $TARGET $NO_ORIG
+    rm -f $TARGET
     gunzip "${BACKUP}.gz"
     mv_perm $BACKUP $TARGET $2 $3 $4 $5
-  else
-    rm -f $TARGET $NO_ORIG
   fi
 }
 
@@ -108,14 +104,14 @@ restore_backup /system/lib/libart.so                   0    0 0644
 restore_backup /system/lib/libart-compiler.so          0    0 0644
 restore_backup /system/lib/libart-disassembler.so      0    0 0644
 restore_backup /system/lib/libsigchain.so              0    0 0644
-restore_backup /system/lib/libxposed_art.so            0    0 0644
+rm -f /system/lib/libxposed_art.so /system/lib/libxposed_art.so.no_orig
 if [ $IS64BIT ]; then
   restore_link   /system/bin/app_process64             0 2000 0755 u:object_r:zygote_exec:s0
   restore_backup /system/lib64/libart.so               0    0 0644
   restore_backup /system/lib64/libart-compiler.so      0    0 0644
   restore_backup /system/lib64/libart-disassembler.so  0    0 0644
   restore_backup /system/lib64/libsigchain.so          0    0 0644
-  restore_backup /system/lib64/libxposed_art.so        0    0 0644
+  rm -f /system/lib64/libxposed_art.so /system/lib64/libxposed_art.so.no_orig
 fi
 
 if [ "$API" -ge "22" ]; then
