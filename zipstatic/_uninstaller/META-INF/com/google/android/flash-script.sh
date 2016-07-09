@@ -55,7 +55,7 @@ restore_backup() {
     rm -f $TARGET $NO_ORIG
     gunzip "${BACKUP}.gz"
     mv_perm $BACKUP $TARGET $2 $3 $4 $5
-  elif [ -f $NO_ORIG ]; then
+  else
     rm -f $TARGET $NO_ORIG
   fi
 }

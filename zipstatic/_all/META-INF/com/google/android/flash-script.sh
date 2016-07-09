@@ -71,15 +71,11 @@ install_overwrite() {
     return
   fi
   BACKUP="${1}.orig"
-  NO_ORIG="${1}.no_orig"
-  if [ ! -f $TARGET ]; then
-    touch $NO_ORIG || exit 1
-    set_perm $NO_ORIG 0 0 600
-  elif [ -f $BACKUP ]; then
+  if [ -f $BACKUP ]; then
     rm -f $TARGET
     gzip $BACKUP || exit 1
     set_perm "${BACKUP}.gz" 0 0 600
-  elif [ ! -f "${BACKUP}.gz" -a ! -f $NO_ORIG ]; then
+  elif [ ! -f "${BACKUP}.gz" ]; then
     mv $TARGET $BACKUP || exit 1
     gzip $BACKUP || exit 1
     set_perm "${BACKUP}.gz" 0 0 600
@@ -181,7 +177,7 @@ if [ $IS64BIT ]; then
   install_overwrite /system/lib64/libart-compiler.so      0    0 0644
   install_overwrite /system/lib64/libart-disassembler.so  0    0 0644
   install_overwrite /system/lib64/libsigchain.so          0    0 0644
-  install_overwrite /system/lib64/libxposed_art.so        0    0 0644
+  install_nobackup  /system/lib64/libxposed_art.so        0    0 0644
 fi
 
 if [ "$API" -ge "22" ]; then
