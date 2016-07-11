@@ -48,22 +48,26 @@ sub main() {
         # Determine build targets
         my $target_spec = $opts{'t'} || '';
         print_status("Expanding targets from '$target_spec'...", 0);
-        my @targets = Xposed::expand_targets($target_spec, 1);
-        if (!@targets) {
-            print_error('No valid targets specified');
-            usage(2);
-        }
-        print "\n";
+        foreach (split(m/[\/ ]+/, $target_spec)) {
+            my @targets = Xposed::expand_targets($_, 1);
+            if (!@targets) {
+                print_error('No valid targets specified');
+                usage(2);
+            }
+            print "\n";
 
-        # Check whether flashing is possible
-        if ($opts{'f'} && $#targets != 0) {
-            print_error('Flashing is only supported for a single target!');
-            exit 1;
-        }
+            # Check whether flashing is possible
+            if ($opts{'f'} && $#targets != 0) {
+                print_error('Flashing is only supported for a single target!');
+                exit 1;
+            }
 
-        # Build the specified targets
-        foreach my $target (@targets) {
-            all_in_one($target->{'platform'}, $target->{'sdk'}, !$opts{'v'}) || exit 1;
+            # Build the specified targets
+            foreach my $target (@targets) {
+                all_in_one($target->{'platform'}, $target->{'sdk'}, $target->{'bundle'}, !$opts{'v'}) || exit 1;
+            }
+
+            bundle_zip($targets[0]->{'sdk'}) if ($targets[0]->{'bundle'})
         }
     } elsif ($action eq 'java') {
         # Build XposedBridge.jar
@@ -104,6 +108,10 @@ Format of <targets> is: <platform>:<sdk>[/<platform2>:<sdk2>/...]
   <platform> is a comma-separated list of: arm, x86, arm64 (and up to SDK 17, also armv5)
   <sdk> is a comma-separated list of integers (e.g. 21 for Android 5.0)
   Both platform and SDK accept the wildcard "all".
+  For platform, the "all" option will create seperate package for all platforms.
+  Platform also accepts wildcard "bundle".
+  The "bundle" option will create an all-in-one package for a certain SDK version.
+
 
 Values for <steps> are provided as a comma-separated list of:
   compile   Compile executables and libraries.
@@ -113,6 +121,8 @@ Values for <steps> are provided as a comma-separated list of:
 
 
 Examples:
+$0 -t bundle:23
+   (build an all-in-one package for SDK 23)
 $0 -t arm:all/x86,arm64:21
    (build ARM files for all SDKs, plus x86 and arm64 files for SDK 21)
 
@@ -140,9 +150,10 @@ sub should_perform_step($) {
 }
 
 # Performs all build steps for one platform/SDK combination
-sub all_in_one($$;$) {
+sub all_in_one($$$;$) {
     my $platform = shift;
     my $sdk = shift;
+    my $bundle = shift;
     my $silent = shift || 0;
 
     print_status("Processing SDK $sdk, platform $platform...", 0);
@@ -151,7 +162,7 @@ sub all_in_one($$;$) {
     if ($platform ne 'host' && $platform ne 'hostd') {
         collect($platform, $sdk) || return 0;
         create_xposed_prop($platform, $sdk, !$silent) || return 0;
-        create_zip($platform, $sdk) || return 0;
+        create_zip($platform, $sdk) if (!$bundle) || return $bundle;
     }
 
     print "\n\n";
@@ -356,7 +367,7 @@ sub create_zip($$) {
     $zip->addFile("$outdir/java/XposedBridge.jar", 'system/framework/XposedBridge.jar') || return 0;
     # TODO: We probably need different files for older releases
     $zip->addTree($Bin . '/zipstatic/_all/', '') == AZ_OK || return 0;
-    $zip->addTree($Bin . '/zipstatic/' . $platform . '/', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/single/', '') == AZ_OK || return 0;
 
     # Set last modification time to "now"
     my $now = time();
@@ -399,6 +410,56 @@ sub create_zip($$) {
         system("adb shell su -c 'NO_UIPRINT=1 /data/local/tmp/update-binary 2 1 /data/local/tmp/xposed.zip'") == 0  || return 0;
         system("adb shell 'rm /data/local/tmp/update-binary /data/local/tmp/xposed.zip'") == 0 || return 0;
         system("adb shell su -c 'stop; sleep 2; start'") == 0 || return 0;
+    }
+
+    return 1;
+}
+
+# Create an all-in-one bundled flashable ZIP file with the compiled and some static files
+sub bundle_zip($) {
+    my $sdk = shift;
+
+    should_perform_step('zip') || return 1;
+    print_status("Creating all-in-one bundled flashable ZIP file...", 1);
+
+    # Create a new ZIP file
+    my $zip = Archive::Zip->new();
+    my $outdir = $Xposed::cfg->val('General', 'outdir');
+    my $armdir = Xposed::get_collection_dir('arm', $sdk);
+    my $arm64dir = Xposed::get_collection_dir('arm64', $sdk);
+    my $x86dir = Xposed::get_collection_dir('x86', $sdk);
+    $zip->addTree($armdir . '/files/', 'arm/') == AZ_OK || return 0;
+    $zip->addTree($arm64dir . '/files/', 'arm64/') == AZ_OK || return 0;
+    $zip->addTree($x86dir . '/files/', 'x86/') == AZ_OK || return 0;
+    $zip->addDirectory('common/') || return 0;
+    $zip->addFile("$outdir/java/XposedBridge.jar", 'common/XposedBridge.jar') || return 0;
+    # TODO: We probably need different files for older releases
+    $zip->addTree($Bin . '/zipstatic/_all/', '') == AZ_OK || return 0;
+    $zip->addTree($Bin . '/zipstatic/bundle/', '') == AZ_OK || return 0;
+
+    # Set last modification time to "now"
+    my $now = time();
+    foreach my $member($zip->members()) {
+        $member->setLastModFileDateTimeFromUnix($now);
+    }
+
+    # Write the ZIP file to disk
+    my ($version, $suffix) = Xposed::get_version_for_filename();
+    my $zipname = sprintf('xposed-v%d-sdk%d%s.zip', $version, $sdk, $suffix);
+    my $zippath = Xposed::get_bundle_dir($sdk) . '/' . $zipname;
+    print "$zippath\n";
+    $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
+
+    Xposed::sign_zip($zippath);
+    Xposed::gpg_sign($zippath, $opts{'r'});
+
+    # Create a symlink in a version-specific directory for easier collection
+    my $versiondir = Xposed::get_version_dir();
+    my $versionlink = $versiondir . '/' . $zipname;
+    make_path($versiondir);
+    unlink($versionlink);
+    if (!symlink($zippath, $versionlink)) {
+        print_error("Could not create link $versionlink -> $zippath: $!");
     }
 
     return 1;

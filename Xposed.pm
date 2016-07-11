@@ -119,21 +119,31 @@ sub expand_targets($;$) {
 
     my @result;
     my %seen;
-    foreach (split(m/[\/ ]+/, $spec)) {
-        my ($pfspec, $sdkspec) = split(m/[: ]+/, $_, 2);
-        my @pflist = ($pfspec ne 'all' && $pfspec ne 'all+') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
-        if ($pfspec eq 'all+') {
-            push @pflist, 'host';
-            push @pflist, 'hostd';
-            $pfspec = 'all';
-        }
-        my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
-        foreach my $sdk (@sdklist) {
-            foreach my $pf (@pflist) {
-                next if !check_target_sdk_platform($pf, $sdk, $pfspec eq 'all' || $sdkspec eq 'all');
-                next if $seen{"$pf/$sdk"}++;
-                push @result, { platform => $pf, sdk => $sdk };
-                print "  SDK $sdk, platform $pf\n" if $print;
+    my ($pfspec, $sdkspec) = split(m/[: ]+/, $spec, 2);
+    my @pflist = ($pfspec ne 'bundle' && $pfspec ne 'all' && $pfspec ne 'all+') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
+    if ($pfspec eq 'all+') {
+        push @pflist, 'host';
+        push @pflist, 'hostd';
+        $pfspec = 'all';
+    }
+    my $bundle;
+    if ($pfspec eq 'bundle') {
+        $bundle = 1;
+        $pfspec = 'all';
+    }
+    else {
+        $bundle = 0
+    }
+    my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
+    foreach my $sdk (@sdklist) {
+        foreach my $pf (@pflist) {
+            next if !check_target_sdk_platform($pf, $sdk, $pfspec eq 'all' || $sdkspec eq 'all');
+            next if $seen{"$pf/$sdk"}++;
+            push @result, { platform => $pf, sdk => $sdk, bundle => $bundle };
+            if ($print) {
+                print "  SDK $sdk, platform $pf";
+                print " (bundle)" if ($bundle);
+                print "\n"; 
             }
         }
     }
@@ -239,6 +249,12 @@ sub get_collection_dir($$) {
     my $platform = shift;
     my $sdk = shift;
     return sprintf('%s/sdk%d/%s', $cfg->val('General', 'outdir'), $sdk, $platform);
+}
+
+# Determines the sdk directory where compiled files etc. are collected
+sub get_bundle_dir($) {
+    my $sdk = shift;
+    return sprintf('%s/sdk%d', $cfg->val('General', 'outdir'), $sdk);
 }
 
 # Returns the directory to store symlinks to the ZIPs per versions
