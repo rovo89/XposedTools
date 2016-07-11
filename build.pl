@@ -75,6 +75,9 @@ sub main() {
     } elsif ($action eq 'prunelogs') {
         # Remove old logs
         prune_logs() || exit 1;
+    } elsif ($action eq 'uninstaller') {
+        # Build uninstaller
+        uninstaller_zip() || exit 1;
     } else {
         print_error("Unknown action specified: $action");
         usage(2);
@@ -100,9 +103,10 @@ Usage: $0 [-v] [-i] [-f] [-a <action>][-t <targets>] [-s <steps>] [-r]
   -v   Verbose mode. Display the build log instead of redirecting it to a file.
 
 Possible actions are:
-  build       Builds the native executables and libraries.
-  java        Builds the Java part (XposedBridge).
-  prunelogs   Removes logs which are older than 24 hours.
+  build         Builds the native executables and libraries.
+  java          Builds the Java part (XposedBridge).
+  prunelogs     Removes logs which are older than 24 hours.
+  uninstaller   Create uninstaller ZIP file
 
 Format of <targets> is: <platform>:<sdk>[/<platform2>:<sdk2>/...]
   <platform> is a comma-separated list of: arm, x86, arm64 (and up to SDK 17, also armv5)
@@ -471,6 +475,35 @@ sub bundle_zip($) {
     if (!symlink($zippath, $versionlink)) {
         print_error("Could not create link $versionlink -> $zippath: $!");
     }
+
+    return 1;
+}
+
+# Create a flashable ZIP file with the compiled and some static files
+sub uninstaller_zip() {
+
+    print_status("Creating uninstaller ZIP file...", 1);
+
+    # Create a new ZIP file
+    my $zip = Archive::Zip->new();
+    my $outdir = $Xposed::cfg->val('General', 'outdir');
+    $zip->addTree($Bin . '/zipstatic/_uninstaller/', '') == AZ_OK || return 0;
+
+    # Set last modification time to "now"
+    my $now = time();
+    foreach my $member($zip->members()) {
+        $member->setLastModFileDateTimeFromUnix($now);
+    }
+
+    # Write the ZIP file to disk
+    my ($version, $suffix) = Xposed::get_version_for_filename();
+    my $zipname = sprintf('xposed-uninstaller%s.zip', $suffix);
+    my $zippath = $outdir . '/' . $zipname;
+    print "$zippath\n";
+    $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
+
+    Xposed::sign_zip($zippath);
+    Xposed::gpg_sign($zippath, $opts{'r'});
 
     return 1;
 }
