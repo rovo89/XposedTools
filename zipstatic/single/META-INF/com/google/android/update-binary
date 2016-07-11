@@ -74,6 +74,12 @@ prepare_systemless() {
   umount /su 2>/dev/null
   mkdir /su 2>/dev/null
 
+  if [ -f /system/xbin/su ]; then
+    SYSTEMLESS=false
+    ui_print "! System installed root detected!"
+    return
+  fi 
+
   SUIMG=""
   XPATH=""
 
@@ -283,14 +289,8 @@ if [ -z $XVALID ]; then
 fi
 
 getvar SYSTEMLESS
-if [ -z "$SYSTEMLESS" ]; then
-  SYSTEMLESS=true
-  if [ -f /system/xbin/su ]; then
-    SYSTEMLESS=false
-    ui_print "! System installed root detected!"
-  else
-    prepare_systemless
-  fi 
+if [ "$SYSTEMLESS" != "false" ]; then
+  prepare_systemless
 fi
 
 if [ "$SYSTEMLESS" = "true" ]; then
