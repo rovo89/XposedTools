@@ -1,0 +1,333 @@
+#!/sbin/sh
+##########################################################################################
+#
+# Xposed framework installer zip.
+#
+# This script installs the Xposed framework files to xposed.img
+# The Xposed Installer app is needed as well to manage the installed modules.
+#
+##########################################################################################
+
+##########################################################################################
+# Flashable update-binary preparation
+##########################################################################################
+
+OUTFD=$2
+ZIP=$3
+
+readlink /proc/$$/fd/$OUTFD 2>/dev/null | grep /tmp >/dev/null
+if [ "$?" -eq "0" ]; then
+  OUTFD=0
+
+  for FD in `ls /proc/$$/fd`; do
+    readlink /proc/$$/fd/$FD 2>/dev/null | grep pipe >/dev/null
+    if [ "$?" -eq "0" ]; then
+      ps | grep " 3 $FD " | grep -v grep >/dev/null
+      if [ "$?" -eq "0" ]; then
+        OUTFD=$FD
+        break
+      fi
+    fi
+  done
+fi
+
+rm -rf /tmp/xposed 2>/dev/null
+mkdir /tmp/xposed
+unzip -o "$ZIP" -d /tmp/xposed
+
+cd /tmp/xposed
+
+##########################################################################################
+# Functions
+##########################################################################################
+
+getvar() {
+  local VARNAME=$1
+  local VALUE=$(eval echo \$"$VARNAME");
+  for FILE in /data/.xposed /cache/.xposed /system/.xposed; do
+    if [ -z "$VALUE" ]; then
+      LINE=$(cat $FILE 2>/dev/null | grep "$VARNAME=")
+      if [ ! -z "$LINE" ]; then
+        VALUE=${LINE#*=}
+      fi
+    fi
+  done
+  eval $VARNAME=\$VALUE
+}
+
+ui_print() {
+  echo -n -e "ui_print $1\n" >> /proc/self/fd/$OUTFD
+  echo -n -e "ui_print\n" >> /proc/self/fd/$OUTFD
+}
+
+is_mounted() {
+  if [ ! -z "$2" ]; then
+    cat /proc/mounts | grep $1 | grep $2, >/dev/null
+  else
+    cat /proc/mounts | grep $1 >/dev/null
+  fi
+  return $?
+}
+
+prepare_systemless() {
+  # Make sure su is not mounted to random images and /su exists
+  umount /su 2>/dev/null
+  mkdir /su 2>/dev/null
+
+  SUIMG=""
+  XPATH=""
+
+  if (is_mounted /data); then
+    SUIMG=/data/su.img
+    XPATH=/su/xposed
+    if [ -f $SUIMG ]; then
+      ui_print "- $SUIMG detected!"
+    else
+      ui_print "! $SUIMG not found!"
+      SYSTEMLESS=false
+      return
+    fi
+  else
+    SUIMG=/cache/su.img
+    XPATH=/su/xposed_cache
+    ui_print " "
+    ui_print "***********************************"
+    ui_print "*      !! Data unavalible !!      *"
+    ui_print "* SuperSU detection is impossible *"
+    ui_print "* Will attempt to use systemless  *"
+    ui_print "* Installation will still proceed *"
+    ui_print "*  But please make sure you have  *"
+    ui_print "*    SuperSU 2.67+ installed!!    *"
+    ui_print "***********************************"
+    ui_print " "
+    if [ -f $SUIMG ]; then
+      ui_print "- $SUIMG detected!"
+    else
+      ui_print "- Creating $SUIMG"
+      make_ext4fs -l 96M -a /su -S ./common/file_contexts_image $SUIMG
+    fi
+  fi
+
+  ui_print "- Mounting $SUIMG to /su"
+  mount -t ext4 $SUIMG /su
+
+  rm -rf $XPATH 2> /dev/null    
+  mkdir /su/su.d 2> /dev/null
+  mkdir $XPATH
+  mkdir $XPATH/system
+  mkdir $XPATH/system/bin
+  mkdir $XPATH/system/framework
+  mkdir $XPATH/system/lib
+  if [ $IS64BIT ]; then
+    mkdir $XPATH/system/lib64
+  fi
+}
+
+grep_prop() {
+  REGEX="s/^$1=//p"
+  shift
+  FILES=$@
+  if [ -z "$FILES" ]; then
+    FILES='/system/build.prop'
+  fi
+  cat $FILES 2>/dev/null | sed -n $REGEX | head -n 1
+}
+
+android_version() {
+  case $1 in
+    15) echo '4.0 / SDK'$1;;
+    16) echo '4.1 / SDK'$1;;
+    17) echo '4.2 / SDK'$1;;
+    18) echo '4.3 / SDK'$1;;
+    19) echo '4.4 / SDK'$1;;
+    21) echo '5.0 / SDK'$1;;
+    22) echo '5.1 / SDK'$1;;
+    23) echo '6.0 / SDK'$1;;
+    *)  echo 'SDK'$1;;
+  esac
+}
+
+cp_perm() {
+  cp -f $1 $2 || exit 1
+  set_perm $2 $3 $4 $5 $6
+}
+
+set_perm() {
+  chown $2:$3 $1 || exit 1
+  chmod $4 $1 || exit 1
+  if [ "$5" ]; then
+    chcon $5 $1 2>/dev/null
+  else
+    chcon 'u:object_r:system_file:s0' $1 2>/dev/null
+  fi
+}
+
+install_nobackup() {
+  cp_perm ./$ARCH$1 $XPATH$1 $2 $3 $4 $5
+}
+
+install_and_link() {
+  TARGET=$1
+  XPOSED="${1}_xposed"
+  BACKUP="${1}_original"
+  if [ ! -f ./$ARCH$XPOSED ]; then
+    return
+  fi
+  install_nobackup $XPOSED $2 $3 $4 $5
+  if [[ "$SYSTEMLESS" = "false" ]]; then
+    if [ ! -f $BACKUP ]; then
+      mv $TARGET $BACKUP || exit 1
+      ln -s $XPOSED $TARGET || exit 1
+      chcon -h 'u:object_r:system_file:s0' $TARGET 2>/dev/null
+    fi
+  fi
+}
+
+install_overwrite() {
+  TARGET=$1
+  if [ ! -f ./$ARCH$TARGET ]; then
+    return
+  fi
+  BACKUP="${1}.orig"
+  NO_ORIG="${1}.no_orig"
+  if [[ "$SYSTEMLESS" = "false" ]]; then
+    if [ ! -f $TARGET ]; then
+      touch $NO_ORIG || exit 1
+      set_perm $NO_ORIG 0 0 600
+    elif [ -f $BACKUP ]; then
+      rm -f $TARGET
+      gzip $BACKUP || exit 1
+      set_perm "${BACKUP}.gz" 0 0 600
+    elif [ ! -f "${BACKUP}.gz" -a ! -f $NO_ORIG ]; then
+      mv $TARGET $BACKUP || exit 1
+      gzip $BACKUP || exit 1
+      set_perm "${BACKUP}.gz" 0 0 600
+    fi
+  fi
+  install_nobackup $TARGET $2 $3 $4 $5
+}
+
+##########################################################################################
+# Start
+##########################################################################################
+
+ui_print "******************************"
+ui_print "Xposed framework installer zip"
+ui_print "Systemless Ver. by  @topjohnwu"
+ui_print "******************************"
+
+if [ ! -d "./common" ]; then
+  ui_print "! Failed: Unable to extract zip file!"
+  exit 1
+fi
+
+ui_print "- Mounting /system(ro), /cache, /data"
+mount -o ro /system 2>/dev/null
+mount /cache 2>/dev/null
+mount /data 2>/dev/null
+
+if [ ! -f '/system/build.prop' ]; then
+  ui_print "! Failed: /system could not be mounted!"
+  exit 1
+fi
+
+API=$(grep_prop ro.build.version.sdk)
+APINAME=$(android_version $API)
+ABI=$(grep_prop ro.product.cpu.abi | cut -c-3)
+ABI2=$(grep_prop ro.product.cpu.abi2 | cut -c-3)
+ABILONG=$(grep_prop ro.product.cpu.abi)
+
+ARCH=arm
+IS64BIT=
+if [ "$ABI" = "x86" ]; then ARCH=x86; fi;
+if [ "$ABI2" = "x86" ]; then ARCH=x86; fi;
+if [ "$API" -ge "21" ]; then
+  if [ "$ABILONG" = "arm64-v8a" ]; then ARCH=arm64; IS64BIT=1; fi;
+  if [ "$ABILONG" = "x86_64" ]; then ARCH=x64; IS64BIT=1; fi;
+fi
+
+XVERSION=$(grep_prop version $ARCH/system/xposed.prop)
+XMINSDK=$(grep_prop minsdk $ARCH/system/xposed.prop)
+XMAXSDK=$(grep_prop maxsdk $ARCH/system/xposed.prop)
+
+XEXPECTEDSDK=$(android_version $XMINSDK)
+if [ "$XMINSDK" != "$XMAXSDK" ]; then
+  XEXPECTEDSDK=$XEXPECTEDSDK' - '$(android_version $XMAXSDK)
+fi
+
+ui_print "- Xposed version: $XVERSION"
+ui_print "- Device platform: $ARCH"
+
+XVALID=
+if [ "$API" -ge "$XMINSDK" ]; then
+  if [ "$API" -le "$XMAXSDK" ]; then
+    XVALID=1
+  else
+    ui_print "! Wrong Android version: $APINAME"
+    ui_print "! This file is for: $XEXPECTEDSDK"
+  fi
+else
+  ui_print "! Wrong Android version: $APINAME"
+  ui_print "! This file is for: $XEXPECTEDSDK"
+fi
+
+if [ -z $XVALID ]; then
+  ui_print "! Please download the correct package"
+  ui_print "! for your Android version!"
+  exit 1
+fi
+
+getvar SYSTEMLESS
+if [ -z "$SYSTEMLESS" ]; then
+  SYSTEMLESS=true
+  if [ -f /system/xbin/su ]; then
+    SYSTEMLESS=false
+    ui_print "! System installed root detected!"
+  else
+    prepare_systemless
+  fi 
+fi
+
+if [ "$SYSTEMLESS" = "true" ]; then
+  ui_print "- Using systemless mode"
+else
+  XPATH=""
+  ui_print "- Using system mode"
+  ui_print "- Re-mounting /system to rw"
+  mount -o rw,remount /system
+fi
+
+##########################################################################################
+# Detection all done, start installing
+##########################################################################################
+
+ui_print "- Placing files"
+
+cp_perm ./common/XposedBridge.jar $XPATH/system/framework/XposedBridge.jar 0 0 0644
+if [ "$SYSTEMLESS" = "true" ]; then
+  cp_perm ./common/00xposed /su/su.d/00xposed             0    0 0755
+fi
+install_nobackup /system/xposed.prop                      0    0 0644
+install_and_link /system/bin/app_process32                0 2000 0755 u:object_r:zygote_exec:s0
+install_overwrite /system/bin/dex2oat                     0 2000 0755 u:object_r:dex2oat_exec:s0
+install_overwrite /system/bin/oatdump                     0 2000 0755
+install_overwrite /system/bin/patchoat                    0 2000 0755 u:object_r:dex2oat_exec:s0
+install_overwrite /system/lib/libart.so                   0    0 0644
+install_overwrite /system/lib/libart-compiler.so          0    0 0644
+install_overwrite /system/lib/libart-disassembler.so      0    0 0644
+install_overwrite /system/lib/libsigchain.so              0    0 0644
+install_nobackup /system/lib/libxposed_art.so             0    0 0644
+if [ $IS64BIT ]; then
+  install_and_link /system/bin/app_process64              0 2000 0755 u:object_r:zygote_exec:s0
+  install_overwrite /system/lib64/libart.so               0    0 0644
+  install_overwrite /system/lib64/libart-compiler.so      0    0 0644
+  install_overwrite /system/lib64/libart-disassembler.so  0    0 0644
+  install_overwrite /system/lib64/libsigchain.so          0    0 0644
+  install_nobackup /system/lib64/libxposed_art.so         0    0 0644
+fi
+
+umount /su 2>/dev/null
+umount /system
+
+ui_print "- Done"
+exit 0
