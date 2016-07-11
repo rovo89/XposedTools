@@ -158,7 +158,7 @@ sub all_in_one($$$;$) {
 
     print_status("Processing SDK $sdk, platform $platform...", 0);
 
-    # compile($platform, $sdk, $silent) || return 0;
+    compile($platform, $sdk, $silent) || return 0;
     if ($platform ne 'host' && $platform ne 'hostd') {
         collect($platform, $sdk) || return 0;
         create_xposed_prop($platform, $sdk, !$silent) || return 0;
