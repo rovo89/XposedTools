@@ -130,8 +130,7 @@ sub expand_targets($;$) {
     if ($pfspec eq 'bundle') {
         $bundle = 1;
         $pfspec = 'all';
-    }
-    else {
+    } else {
         $bundle = 0
     }
     my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
@@ -196,7 +195,7 @@ sub get_version() {
 # Returns the Xposed version number and the suffix to be used in file names
 sub get_version_for_filename(;$) {
     my $version = shift || get_version();
-    $version =~ m/^(\d+)(.*)/;
+    $version =~ m/^(\d+(?:\.\d+)?)(.*)/;
     my ($version_num, $suffix) = ($1, $2);
     if ($suffix) {
         $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
@@ -260,7 +259,11 @@ sub get_bundle_dir($) {
 # Returns the directory to store symlinks to the ZIPs per versions
 sub get_version_dir(;$) {
     my ($version, $suffix) = get_version_for_filename(shift);
-    return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    if ($version =~ m/^\d+\./) {
+        return sprintf('%s/versions/v%.1f%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    } else {
+        return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    }
 }
 
 # Determines the mode that has to be passed to the "lunch" command

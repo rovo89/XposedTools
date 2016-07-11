@@ -158,7 +158,7 @@ sub all_in_one($$$;$) {
 
     print_status("Processing SDK $sdk, platform $platform...", 0);
 
-    compile($platform, $sdk, $silent) || return 0;
+    # compile($platform, $sdk, $silent) || return 0;
     if ($platform ne 'host' && $platform ne 'hostd') {
         collect($platform, $sdk) || return 0;
         create_xposed_prop($platform, $sdk, !$silent) || return 0;
@@ -377,7 +377,12 @@ sub create_zip($$) {
 
     # Write the ZIP file to disk
     my ($version, $suffix) = Xposed::get_version_for_filename();
-    my $zipname = sprintf('xposed-v%d-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    my $zipname;
+    if ($version =~ m/^\d+\./) {
+       $zipname = sprintf('xposed-v%.1f-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    } else {
+       $zipname = sprintf('xposed-v%d-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    }
     my $zippath = $coldir . '/' . $zipname;
     print "$zippath\n";
     $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
@@ -445,7 +450,12 @@ sub bundle_zip($) {
 
     # Write the ZIP file to disk
     my ($version, $suffix) = Xposed::get_version_for_filename();
-    my $zipname = sprintf('xposed-v%d-sdk%d%s.zip', $version, $sdk, $suffix);
+    my $zipname;
+    if ($version =~ m/^\d+\./) {
+       $zipname = sprintf('xposed-v%.1f-sdk%d%s.zip', $version, $sdk, $suffix);
+    } else {
+       $zipname = sprintf('xposed-v%d-sdk%d%s.zip', $version, $sdk, $suffix);
+    }
     my $zippath = Xposed::get_bundle_dir($sdk) . '/' . $zipname;
     print "$zippath\n";
     $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
