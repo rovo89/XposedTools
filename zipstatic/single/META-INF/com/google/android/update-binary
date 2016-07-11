@@ -290,6 +290,7 @@ fi
 
 getvar SYSTEMLESS
 if [ "$SYSTEMLESS" != "false" ]; then
+  SYSTEMLESS=true
   prepare_systemless
 fi
 
