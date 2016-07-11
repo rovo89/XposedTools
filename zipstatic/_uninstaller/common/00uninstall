@@ -1,0 +1,5 @@
+#!/system/bin/sh
+
+rm -rf /su/xposed
+rm -rf /su/su.d/00xposed
+rm -rf /su/su.d/00uninstall

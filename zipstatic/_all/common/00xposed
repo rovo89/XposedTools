@@ -53,6 +53,3 @@ bind_mount /system/lib/libsigchain.so
 bind_mount /system/lib64/libart.so
 bind_mount /system/lib64/libart-disassembler.so
 bind_mount /system/lib64/libsigchain.so
-
-
-
