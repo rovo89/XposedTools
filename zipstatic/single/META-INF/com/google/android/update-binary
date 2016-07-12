@@ -33,9 +33,9 @@ fi
 
 rm -rf /tmp/xposed 2>/dev/null
 mkdir /tmp/xposed
-unzip -o "$ZIP" -d /tmp/xposed
-
 cd /tmp/xposed
+unzip -o "$ZIP"
+INSTALLER=/tmp/xposed
 
 ##########################################################################################
 # Functions
@@ -103,14 +103,14 @@ prepare_systemless() {
     ui_print "* Will attempt to use systemless  *"
     ui_print "* Installation will still proceed *"
     ui_print "*  But please make sure you have  *"
-    ui_print "*    SuperSU 2.67+ installed!!    *"
+    ui_print "*    SuperSU 2.76+ installed!!    *"
     ui_print "***********************************"
     ui_print " "
     if [ -f $SUIMG ]; then
       ui_print "- $SUIMG detected!"
     else
       ui_print "- Creating $SUIMG"
-      make_ext4fs -l 96M -a /su -S ./common/file_contexts_image $SUIMG
+      make_ext4fs -l 96M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
     fi
   fi
 
@@ -169,14 +169,14 @@ set_perm() {
 }
 
 install_nobackup() {
-  cp_perm ./$1 $XPATH$1 $2 $3 $4 $5
+  cp_perm $INSTALLER$1 $XPATH$1 $2 $3 $4 $5
 }
 
 install_and_link() {
   TARGET=$1
   XPOSED="${1}_xposed"
   BACKUP="${1}_original"
-  if [ ! -f ./$XPOSED ]; then
+  if [ ! -f $INSTALLER$XPOSED ]; then
     return
   fi
   install_nobackup $XPOSED $2 $3 $4 $5
@@ -191,7 +191,7 @@ install_and_link() {
 
 install_overwrite() {
   TARGET=$1
-  if [ ! -f ./$TARGET ]; then
+  if [ ! -f $INSTALLER$TARGET ]; then
     return
   fi
   BACKUP="${1}.orig"
@@ -222,7 +222,7 @@ ui_print "Xposed framework installer zip"
 ui_print "Systemless Ver. by  @topjohnwu"
 ui_print "******************************"
 
-if [ ! -d "./common" ]; then
+if [ ! -d "$INSTALLER/common" ]; then
   ui_print "! Failed: Unable to extract zip file!"
   exit 1
 fi
@@ -309,11 +309,11 @@ fi
 
 ui_print "- Placing files"
 
-cp_perm ./common/XposedBridge.jar $XPATH/system/framework/XposedBridge.jar 0 0 0644
 if [ "$SYSTEMLESS" = "true" ]; then
-  cp_perm ./common/00xposed /su/su.d/00xposed             0    0 0755
+  cp_perm $INSTALLER/common/00xposed /su/su.d/00xposed             0    0 0755
 fi
 install_nobackup /system/xposed.prop                      0    0 0644
+install_nobackup /system/framework/XposedBridge.jar       0    0 0644
 install_and_link /system/bin/app_process32                0 2000 0755 u:object_r:zygote_exec:s0
 install_overwrite /system/bin/dex2oat                     0 2000 0755 u:object_r:dex2oat_exec:s0
 install_overwrite /system/bin/oatdump                     0 2000 0755

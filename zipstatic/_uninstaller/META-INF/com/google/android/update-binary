@@ -33,9 +33,9 @@ fi
 
 rm -rf /tmp/xposed 2>/dev/null
 mkdir /tmp/xposed
-unzip -o "$ZIP" -d /tmp/xposed
-
 cd /tmp/xposed
+unzip -o "$ZIP"
+INSTALLER=/tmp/xposed
 
 ##########################################################################################
 # Functions
@@ -77,7 +77,7 @@ prepare_systemless() {
       ui_print "- $SUIMG detected!"
     else
       ui_print "- Creating $SUIMG"
-      make_ext4fs -l 96M -a /su -S ./common/file_contexts_image $SUIMG
+      make_ext4fs -l 96M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
     fi
   fi
 
@@ -162,7 +162,7 @@ ui_print "Xposed framework uninstaller zip"
 ui_print " Systemless Ver. by  @topjohnwu"
 ui_print "********************************"
 
-if [ ! -d "./common" ]; then
+if [ ! -d "$INSTALLER/common" ]; then
   ui_print "! Failed: Unable to extract zip file!"
   exit 1
 fi
@@ -220,8 +220,13 @@ fi
 ui_print "- Uninstalling/restoring files"
 
 if [ "$SYSTEMLESS" = "true" ]; then
-  cp ./common/00uninstall /su/su.d/
-  chmod 755 /su/su.d/00uninstall
+  if [ -d /su/xposed ]; then
+    rm -rf /su/xposed
+  else
+    # Cache workaround
+    cp $INSTALLER/common/00uninstall /su/su.d/
+    chmod 755 /su/su.d/00uninstall
+  fi
 else
   rm -f /system/xposed.prop
   rm -f /system/framework/XposedBridge.jar
