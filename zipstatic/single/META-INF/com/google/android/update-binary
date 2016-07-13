@@ -310,7 +310,7 @@ fi
 ui_print "- Placing files"
 
 if [ "$SYSTEMLESS" = "true" ]; then
-  cp_perm $INSTALLER/common/00xposed /su/su.d/00xposed             0    0 0755
+  cp_perm $INSTALLER/common/00xposed /su/su.d/00xposed    0    0 0755
 fi
 install_nobackup /system/xposed.prop                      0    0 0644
 install_nobackup /system/framework/XposedBridge.jar       0    0 0644

@@ -47,8 +47,8 @@ sub main() {
 
         # Determine build targets
         my $target_spec = $opts{'t'} || '';
-        print_status("Expanding targets from '$target_spec'...", 0);
         foreach (split(m/[\/ ]+/, $target_spec)) {
+            print_status("Expanding targets from '$_'...", 0);
             my @targets = Xposed::expand_targets($_, 1);
             if (!@targets) {
                 print_error('No valid targets specified');
@@ -162,7 +162,7 @@ sub all_in_one($$$;$) {
 
     print_status("Processing SDK $sdk, platform $platform...", 0);
 
-    compile($platform, $sdk, $silent) || return 0;
+    # compile($platform, $sdk, $silent) || return 0;
     if ($platform ne 'host' && $platform ne 'hostd') {
         collect($platform, $sdk) || return 0;
         create_xposed_prop($platform, $sdk, !$silent) || return 0;
@@ -475,6 +475,9 @@ sub bundle_zip($) {
     if (!symlink($zippath, $versionlink)) {
         print_error("Could not create link $versionlink -> $zippath: $!");
     }
+
+    print "\n\n";
+    print_status('Bundle ZIP Done!', 0);
 
     return 1;
 }

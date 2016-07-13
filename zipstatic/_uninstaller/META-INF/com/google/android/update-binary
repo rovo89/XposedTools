@@ -222,6 +222,7 @@ ui_print "- Uninstalling/restoring files"
 if [ "$SYSTEMLESS" = "true" ]; then
   if [ -d /su/xposed ]; then
     rm -rf /su/xposed
+    rm -f /su/su.d/00xposed
   else
     # Cache workaround
     cp $INSTALLER/common/00uninstall /su/su.d/
