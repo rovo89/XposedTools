@@ -14,6 +14,7 @@ use File::Tail;
 use FindBin qw($Bin);
 use POSIX qw(strftime);
 use Term::ANSIColor;
+use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
 
 our $cfg;
 my $MAX_SUPPORTED_SDK = 23;
@@ -373,7 +374,10 @@ sub sign_zip($) {
     my $signed = $file . '.signed';
     my $cmd = "java -jar $Bin/signapk.jar -w $Bin/signkey.x509.pem $Bin/signkey.pk8 $file $signed";
     system("bash -c \"$cmd\"") == 0 || return 0;
-    rename($signed, $file);
+    # Re-zip the file to fix zip headers
+    my $zip = Archive::Zip->new($signed);
+    $zip->writeToFileNamed($file) == AZ_OK || return 0;
+    unlink $signed;
     return 1;
 }
 
