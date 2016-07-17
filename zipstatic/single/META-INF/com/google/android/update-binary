@@ -70,26 +70,48 @@ is_mounted() {
 }
 
 prepare_systemless() {
+  # Check user config
+  getvar SYSTEMLESS
+  if [ "$SYSTEMLESS" == "false" ]; then
+    return
+  fi
+
+  if [ "$API" -lt "23" ]; then
+    if [ "$SYSTEMLESS" == "true" ]; then
+      ui_print "! Config forces systemless install but impossible on $APINAME"
+      ui_print "aborting..."
+      exit 1
+    fi
+    SYSTEMLESS=false
+    return
+  fi
+
+  # Start systemless preparation
   # Make sure su is not mounted to random images and /su exists
   umount /su 2>/dev/null
   mkdir /su 2>/dev/null
 
-  if [ -f /system/xbin/su ]; then
-    SYSTEMLESS=false
-    ui_print "! System installed root detected!"
-    return
-  fi 
-
-  SUIMG=""
-  XPATH=""
+  SUIMG=
+  XPATH=
 
   if (is_mounted /data); then
+    SUPERSU_CHECK=$(cat /system/xbin/su | grep SuperSU)
+    if [ $? -eq 0 ]; then
+      SYSTEMLESS=false
+      ui_print "! System installed SuperSU detected!"
+      return
+    fi
     SUIMG=/data/su.img
     XPATH=/su/xposed
     if [ -f $SUIMG ]; then
       ui_print "- $SUIMG detected!"
     else
-      ui_print "! $SUIMG not found!"
+      ui_print "! Unable to find systemless SuperSU!"
+      if [ "$SYSTEMLESS" == "true" ]; then
+        ui_print "- Config forces systemless install but requirements unmet"
+        ui_print "aborting..."
+        exit 1
+      fi
       SYSTEMLESS=false
       return
     fi
@@ -100,7 +122,7 @@ prepare_systemless() {
     ui_print "***********************************"
     ui_print "*      !! Data unavalible !!      *"
     ui_print "* SuperSU detection is impossible *"
-    ui_print "* Will attempt to use systemless  *"
+    ui_print "* Will attempt to use systemless. *"
     ui_print "* Installation will still proceed *"
     ui_print "*  But please make sure you have  *"
     ui_print "*    SuperSU 2.76+ installed!!    *"
@@ -110,12 +132,50 @@ prepare_systemless() {
       ui_print "- $SUIMG detected!"
     else
       ui_print "- Creating $SUIMG"
-      make_ext4fs -l 96M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
+      make_ext4fs -l 32M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
     fi
   fi
 
+  SYSTEMLESS=true
+
   ui_print "- Mounting $SUIMG to /su"
-  mount -t ext4 $SUIMG /su
+  LOOPDEVICE=
+  for LOOP in 0 1 2 3 4 5 6 7; do
+    if (! is_mounted /su); then
+      LOOPDEVICE=/dev/block/loop$LOOP
+      if [ ! -f "$LOOPDEVICE" ]; then
+        mknod $LOOPDEVICE b 7 $LOOP
+      fi
+      losetup $LOOPDEVICE $SUIMG
+      if [ "$?" -eq "0" ]; then
+        mount -t ext4 -o loop $LOOPDEVICE /su
+        if (! is_mounted /su); then
+          /system/bin/toolbox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+        if (! is_mounted /su); then
+          /system/bin/toybox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+      fi
+      if (is_mounted /su); then
+        break;
+      fi
+    fi
+  done
+
+  # Check SuperSU version > 2.76
+  if [ -d "/su/bin" ]; then
+    SU_VERSION=$(/su/bin/su -v)
+    VERSION=${SU_VERSION%:*}
+    RESULT=$(awk -v C=$VERSION -v M=2.76 'BEGIN {if (C >= M) printf("true"); else printf("false");}')
+    if [ "$RESULT" = "false" ]; then
+      ui_print "! Installed SuperSU: $VERSION < 2.76"
+      ui_print "! Minumum requirement is SuperSU 2.76!!"
+      ui_print "aborting..."
+      exit 1
+    else
+      ui_print "- Installed SuperSU: $VERSION >= 2.76 ...supported!"
+    fi
+  fi
 
   rm -rf $XPATH 2> /dev/null    
   mkdir /su/su.d 2> /dev/null
@@ -219,7 +279,6 @@ install_overwrite() {
 
 ui_print "******************************"
 ui_print "Xposed framework installer zip"
-ui_print "Systemless Ver. by  @topjohnwu"
 ui_print "******************************"
 
 if [ ! -d "$INSTALLER/common" ]; then
@@ -288,11 +347,7 @@ if [ -z $XVALID ]; then
   exit 1
 fi
 
-getvar SYSTEMLESS
-if [ "$SYSTEMLESS" != "false" ]; then
-  SYSTEMLESS=true
-  prepare_systemless
-fi
+prepare_systemless
 
 if [ "$SYSTEMLESS" = "true" ]; then
   ui_print "- Using systemless mode"
