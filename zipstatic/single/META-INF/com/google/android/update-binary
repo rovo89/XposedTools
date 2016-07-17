@@ -70,19 +70,26 @@ is_mounted() {
 }
 
 prepare_systemless() {
+  VALID=
+
   # Check user config
-  getvar SYSTEMLESS
   if [ "$SYSTEMLESS" == "false" ]; then
+    VALID=false
     return
   fi
 
+  # Check Android version
   if [ "$API" -lt "23" ]; then
-    if [ "$SYSTEMLESS" == "true" ]; then
-      ui_print "! Config forces systemless install but impossible on $APINAME"
-      ui_print "aborting..."
-      exit 1
-    fi
-    SYSTEMLESS=false
+    VALID=false
+    ui_print "! Systemless not supported in $APINAME"
+    return
+  fi
+
+  # Check system installed SuperSU
+  SUPERSU_CHECK=$(cat /system/xbin/su | grep SuperSU)
+  if [ $? -eq 0 ]; then
+    VALID=false
+    ui_print "! System installed SuperSU detected!"
     return
   fi
 
@@ -95,24 +102,13 @@ prepare_systemless() {
   XPATH=
 
   if (is_mounted /data); then
-    SUPERSU_CHECK=$(cat /system/xbin/su | grep SuperSU)
-    if [ $? -eq 0 ]; then
-      SYSTEMLESS=false
-      ui_print "! System installed SuperSU detected!"
-      return
-    fi
     SUIMG=/data/su.img
     XPATH=/su/xposed
     if [ -f $SUIMG ]; then
       ui_print "- $SUIMG detected!"
     else
       ui_print "! Unable to find systemless SuperSU!"
-      if [ "$SYSTEMLESS" == "true" ]; then
-        ui_print "- Config forces systemless install but requirements unmet"
-        ui_print "aborting..."
-        exit 1
-      fi
-      SYSTEMLESS=false
+      VALID=false
       return
     fi
   else
@@ -347,7 +343,16 @@ if [ -z $XVALID ]; then
   exit 1
 fi
 
+getvar SYSTEMLESS
 prepare_systemless
+
+if [ "$SYSTEMLESS" = "true" -a "$VALID" = "false" ]; then
+  ui_print "! Config forces systemless install but requirements aren't met"
+  ui_print "aborting..."
+  exit 1
+fi
+
+SYSTEMLESS=$VALID
 
 if [ "$SYSTEMLESS" = "true" ]; then
   ui_print "- Using systemless mode"

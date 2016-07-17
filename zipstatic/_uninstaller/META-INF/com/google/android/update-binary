@@ -56,11 +56,21 @@ is_mounted() {
 }
 
 prepare_systemless() {
+  VALID=
+
+  # Check system installed Xposed
+  if [ -f /system/xposed.prop ]; then
+    VALID=false
+    ui_print "- System Installed Xposed detected!"
+    return
+  else 
+
+  # Start systemless preparation
   # Make sure su is not mounted to random images and /su exists
   umount /su 2>/dev/null
   mkdir /su 2>/dev/null
 
-  SUIMG=""
+  SUIMG=
 
   if (is_mounted /data); then
     SUIMG=/data/su.img
@@ -77,12 +87,36 @@ prepare_systemless() {
       ui_print "- $SUIMG detected!"
     else
       ui_print "- Creating $SUIMG"
-      make_ext4fs -l 96M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
+      make_ext4fs -l 32M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
     fi
   fi
 
+  VALID=true
+
   ui_print "- Mounting $SUIMG to /su"
-  mount -t ext4 $SUIMG /su
+  LOOPDEVICE=
+  for LOOP in 0 1 2 3 4 5 6 7; do
+    if (! is_mounted /su); then
+      LOOPDEVICE=/dev/block/loop$LOOP
+      if [ ! -f "$LOOPDEVICE" ]; then
+        mknod $LOOPDEVICE b 7 $LOOP
+      fi
+      losetup $LOOPDEVICE $SUIMG
+      if [ "$?" -eq "0" ]; then
+        mount -t ext4 -o loop $LOOPDEVICE /su
+        if (! is_mounted /su); then
+          /system/bin/toolbox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+        if (! is_mounted /su); then
+          /system/bin/toybox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+      fi
+      if (is_mounted /su); then
+        break;
+      fi
+    fi
+  done
+
   mkdir /su/su.d 2> /dev/null
 }
 
@@ -159,7 +193,6 @@ restore_backup() {
 
 ui_print "********************************"
 ui_print "Xposed framework uninstaller zip"
-ui_print " Systemless Ver. by  @topjohnwu"
 ui_print "********************************"
 
 if [ ! -d "$INSTALLER/common" ]; then
@@ -195,20 +228,14 @@ else
   exit 1
 fi
 
-SYSTEMLESS=""
+prepare_systemless
 
-if [ -f /system/xposed.prop ]; then
-  SYSTEMLESS=false
-  ui_print "- System Installed Xposed detected!"
-else 
-  SYSTEMLESS=true
-  prepare_systemless
-fi
+SYSTEMLESS=$VALID
 
 if [ "$SYSTEMLESS" = "true" ]; then
-  ui_print "- Remove systemless xposed"
+  ui_print "- Remove systemless Xposed"
 else
-  ui_print "- Remove system xposed"
+  ui_print "- Remove system Xposed"
   ui_print "- Re-mounting /system to rw"
   mount -o rw,remount /system
 fi
@@ -225,7 +252,7 @@ if [ "$SYSTEMLESS" = "true" ]; then
     rm -f /su/su.d/00xposed
   else
     # Cache workaround
-    cp $INSTALLER/common/00uninstall /su/su.d/
+    cp $INSTALLER/common/00uninstall /su/su.d/00uninstall
     chmod 755 /su/su.d/00uninstall
   fi
 else
