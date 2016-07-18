@@ -63,7 +63,7 @@ prepare_systemless() {
     VALID=false
     ui_print "- System Installed Xposed detected!"
     return
-  else 
+  fi
 
   # Start systemless preparation
   # Make sure su is not mounted to random images and /su exists
