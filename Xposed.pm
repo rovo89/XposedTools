@@ -14,6 +14,7 @@ use File::Tail;
 use FindBin qw($Bin);
 use POSIX qw(strftime);
 use Term::ANSIColor;
+use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
 
 our $cfg;
 my $MAX_SUPPORTED_SDK = 23;
@@ -119,21 +120,30 @@ sub expand_targets($;$) {
 
     my @result;
     my %seen;
-    foreach (split(m/[\/ ]+/, $spec)) {
-        my ($pfspec, $sdkspec) = split(m/[: ]+/, $_, 2);
-        my @pflist = ($pfspec ne 'all' && $pfspec ne 'all+') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
-        if ($pfspec eq 'all+') {
-            push @pflist, 'host';
-            push @pflist, 'hostd';
-            $pfspec = 'all';
-        }
-        my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
-        foreach my $sdk (@sdklist) {
-            foreach my $pf (@pflist) {
-                next if !check_target_sdk_platform($pf, $sdk, $pfspec eq 'all' || $sdkspec eq 'all');
-                next if $seen{"$pf/$sdk"}++;
-                push @result, { platform => $pf, sdk => $sdk };
-                print "  SDK $sdk, platform $pf\n" if $print;
+    my ($pfspec, $sdkspec) = split(m/[: ]+/, $spec, 2);
+    my @pflist = ($pfspec ne 'bundle' && $pfspec ne 'all' && $pfspec ne 'all+') ? split(m/[, ]/, $pfspec) : ('arm', 'x86', 'arm64', 'armv5');
+    if ($pfspec eq 'all+') {
+        push @pflist, 'host';
+        push @pflist, 'hostd';
+        $pfspec = 'all';
+    }
+    my $bundle;
+    if ($pfspec eq 'bundle') {
+        $bundle = 1;
+        $pfspec = 'all';
+    } else {
+        $bundle = 0
+    }
+    my @sdklist = ($sdkspec ne 'all') ? split(m/[, ]/, $sdkspec) : $cfg->Parameters('AospDir');
+    foreach my $sdk (@sdklist) {
+        foreach my $pf (@pflist) {
+            next if !check_target_sdk_platform($pf, $sdk, $pfspec eq 'all' || $sdkspec eq 'all');
+            next if $seen{"$pf/$sdk"}++;
+            push @result, { platform => $pf, sdk => $sdk, bundle => $bundle };
+            if ($print) {
+                print "  SDK $sdk, platform $pf";
+                print " (bundle)" if ($bundle);
+                print "\n"; 
             }
         }
     }
@@ -186,7 +196,7 @@ sub get_version() {
 # Returns the Xposed version number and the suffix to be used in file names
 sub get_version_for_filename(;$) {
     my $version = shift || get_version();
-    $version =~ m/^(\d+)(.*)/;
+    $version =~ m/^(\d+(?:\.\d+)?)(.*)/;
     my ($version_num, $suffix) = ($1, $2);
     if ($suffix) {
         $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
@@ -241,10 +251,20 @@ sub get_collection_dir($$) {
     return sprintf('%s/sdk%d/%s', $cfg->val('General', 'outdir'), $sdk, $platform);
 }
 
+# Determines the sdk directory where compiled files etc. are collected
+sub get_bundle_dir($) {
+    my $sdk = shift;
+    return sprintf('%s/sdk%d', $cfg->val('General', 'outdir'), $sdk);
+}
+
 # Returns the directory to store symlinks to the ZIPs per versions
 sub get_version_dir(;$) {
     my ($version, $suffix) = get_version_for_filename(shift);
-    return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    if ($version =~ m/^\d+\./) {
+        return sprintf('%s/versions/v%.1f%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    } else {
+        return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    }
 }
 
 # Determines the mode that has to be passed to the "lunch" command
@@ -354,7 +374,10 @@ sub sign_zip($) {
     my $signed = $file . '.signed';
     my $cmd = "java -jar $Bin/signapk.jar -w $Bin/signkey.x509.pem $Bin/signkey.pk8 $file $signed";
     system("bash -c \"$cmd\"") == 0 || return 0;
-    rename($signed, $file);
+    # Re-zip the file to fix zip headers
+    my $zip = Archive::Zip->new($signed);
+    $zip->writeToFileNamed($file) == AZ_OK || return 0;
+    unlink $signed;
     return 1;
 }
 

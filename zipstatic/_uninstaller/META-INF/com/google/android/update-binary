@@ -1,0 +1,288 @@
+#!/sbin/sh
+##########################################################################################
+#
+# Xposed framework uninstaller zip.
+#
+# This script removes the Xposed framework files.
+# It doesn't touch the Xposed Installer app.
+#
+##########################################################################################
+
+##########################################################################################
+# Flashable update-binary preparation
+##########################################################################################
+
+OUTFD=$2
+ZIP=$3
+
+readlink /proc/$$/fd/$OUTFD 2>/dev/null | grep /tmp >/dev/null
+if [ "$?" -eq "0" ]; then
+  OUTFD=0
+
+  for FD in `ls /proc/$$/fd`; do
+    readlink /proc/$$/fd/$FD 2>/dev/null | grep pipe >/dev/null
+    if [ "$?" -eq "0" ]; then
+      ps | grep " 3 $FD " | grep -v grep >/dev/null
+      if [ "$?" -eq "0" ]; then
+        OUTFD=$FD
+        break
+      fi
+    fi
+  done
+fi
+
+rm -rf /tmp/xposed 2>/dev/null
+mkdir /tmp/xposed
+cd /tmp/xposed
+unzip -o "$ZIP"
+INSTALLER=/tmp/xposed
+
+##########################################################################################
+# Functions
+##########################################################################################
+
+ui_print() {
+  echo -n -e "ui_print $1\n" >> /proc/self/fd/$OUTFD
+  echo -n -e "ui_print\n" >> /proc/self/fd/$OUTFD
+}
+
+is_mounted() {
+  if [ ! -z "$2" ]; then
+    cat /proc/mounts | grep $1 | grep $2, >/dev/null
+  else
+    cat /proc/mounts | grep $1 >/dev/null
+  fi
+  return $?
+}
+
+prepare_systemless() {
+  VALID=
+
+  # Check system installed Xposed
+  if [ -f /system/xposed.prop ]; then
+    VALID=false
+    ui_print "- System Installed Xposed detected!"
+    return
+  fi
+
+  # Start systemless preparation
+  # Make sure su is not mounted to random images and /su exists
+  umount /su 2>/dev/null
+  mkdir /su 2>/dev/null
+
+  SUIMG=
+
+  if (is_mounted /data); then
+    SUIMG=/data/su.img
+    if [ -f $SUIMG ]; then
+      ui_print "- $SUIMG detected!"
+    else
+      ui_print "! $SUIMG not found!"
+      ui_print "! No Xposed Installed!"
+      exit 1
+    fi
+  else
+    SUIMG=/cache/su.img
+    if [ -f $SUIMG ]; then
+      ui_print "- $SUIMG detected!"
+    else
+      ui_print "- Creating $SUIMG"
+      make_ext4fs -l 32M -a /su -S $INSTALLER/common/file_contexts_image $SUIMG
+    fi
+  fi
+
+  VALID=true
+
+  ui_print "- Mounting $SUIMG to /su"
+  LOOPDEVICE=
+  for LOOP in 0 1 2 3 4 5 6 7; do
+    if (! is_mounted /su); then
+      LOOPDEVICE=/dev/block/loop$LOOP
+      if [ ! -f "$LOOPDEVICE" ]; then
+        mknod $LOOPDEVICE b 7 $LOOP
+      fi
+      losetup $LOOPDEVICE $SUIMG
+      if [ "$?" -eq "0" ]; then
+        mount -t ext4 -o loop $LOOPDEVICE /su
+        if (! is_mounted /su); then
+          /system/bin/toolbox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+        if (! is_mounted /su); then
+          /system/bin/toybox mount -t ext4 -o loop $LOOPDEVICE /su
+        fi
+      fi
+      if (is_mounted /su); then
+        break;
+      fi
+    fi
+  done
+
+  mkdir /su/su.d 2> /dev/null
+}
+
+grep_prop() {
+  REGEX="s/^$1=//p"
+  shift
+  FILES=$@
+  if [ -z "$FILES" ]; then
+    FILES='/system/build.prop'
+  fi
+  cat $FILES 2>/dev/null | sed -n $REGEX | head -n 1
+}
+
+android_version() {
+  case $1 in
+    15) echo '4.0 / SDK'$1;;
+    16) echo '4.1 / SDK'$1;;
+    17) echo '4.2 / SDK'$1;;
+    18) echo '4.3 / SDK'$1;;
+    19) echo '4.4 / SDK'$1;;
+    21) echo '5.0 / SDK'$1;;
+    22) echo '5.1 / SDK'$1;;
+    23) echo '6.0 / SDK'$1;;
+    *)  echo 'SDK'$1;;
+  esac
+}
+
+mv_perm() {
+  mv -f $1 $2 || exit 1
+  set_perm $2 $3 $4 $5 $6
+}
+
+set_perm() {
+  chown $2:$3 $1 || exit 1
+  chmod $4 $1 || exit 1
+  if [ "$5" ]; then
+    chcon $5 $1 2>/dev/null
+  else
+    chcon 'u:object_r:system_file:s0' $1 2>/dev/null
+  fi
+}
+
+restore_link() {
+  TARGET=$1
+  XPOSED="${1}_xposed"
+  BACKUP="${1}_original"
+  # Don't touch $TARGET if the link was created by something else (e.g. SuperSU)
+  if [ -f $BACKUP -a -L $TARGET -a "$(readlink $TARGET)" = $XPOSED ]; then
+    rm -f $TARGET
+    mv_perm $BACKUP $TARGET $2 $3 $4 $5
+  fi
+  rm -f $XPOSED
+}
+
+restore_backup() {
+  TARGET=$1
+  BACKUP="${1}.orig"
+  NO_ORIG="${1}.no_orig"
+  if [ -f $BACKUP ]; then
+    mv_perm $BACKUP $TARGET $2 $3 $4 $5
+    rm -f $NO_ORIG
+  elif [ -f "${BACKUP}.gz" ]; then
+    rm -f $TARGET $NO_ORIG
+    gunzip "${BACKUP}.gz"
+    mv_perm $BACKUP $TARGET $2 $3 $4 $5
+  elif [ -f $NO_ORIG ]; then
+    rm -f $TARGET $NO_ORIG
+  fi
+}
+
+##########################################################################################
+# Start
+##########################################################################################
+
+ui_print "********************************"
+ui_print "Xposed framework uninstaller zip"
+ui_print "********************************"
+
+if [ ! -d "$INSTALLER/common" ]; then
+  ui_print "! Failed: Unable to extract zip file!"
+  exit 1
+fi
+
+ui_print "- Mounting /system(ro), /cache, /data"
+mount -o ro /system 2>/dev/null
+mount /cache 2>/dev/null
+mount /data 2>/dev/null
+
+if [ ! -f '/system/build.prop' ]; then
+  ui_print "! Failed: /system could not be mounted!"
+  exit 1
+fi
+
+API=$(grep_prop ro.build.version.sdk)
+APINAME=$(android_version $API)
+ABI=$(grep_prop ro.product.cpu.abi | cut -c-3)
+ABI2=$(grep_prop ro.product.cpu.abi2 | cut -c-3)
+ABILONG=$(grep_prop ro.product.cpu.abi)
+
+ARCH=arm
+IS64BIT=
+if [ "$ABI" = "x86" ]; then ARCH=x86; fi;
+if [ "$ABI2" = "x86" ]; then ARCH=x86; fi;
+if [ "$API" -ge "21" ]; then
+  if [ "$ABILONG" = "arm64-v8a" ]; then ARCH=arm64; IS64BIT=1; fi;
+  if [ "$ABILONG" = "x86_64" ]; then ARCH=x64; IS64BIT=1; fi;
+else
+  ui_print "! This script doesn't work for SDK < 21 (yet)"
+  exit 1
+fi
+
+prepare_systemless
+
+SYSTEMLESS=$VALID
+
+if [ "$SYSTEMLESS" = "true" ]; then
+  ui_print "- Remove systemless Xposed"
+else
+  ui_print "- Remove system Xposed"
+  ui_print "- Re-mounting /system to rw"
+  mount -o rw,remount /system
+fi
+
+##########################################################################################
+# Detection all done, start uninstalling
+##########################################################################################
+
+ui_print "- Uninstalling/restoring files"
+
+if [ "$SYSTEMLESS" = "true" ]; then
+  if [ -d /su/xposed ]; then
+    rm -rf /su/xposed
+    rm -f /su/su.d/00xposed
+  else
+    # Cache workaround
+    cp $INSTALLER/common/00uninstall /su/su.d/00uninstall
+    chmod 755 /su/su.d/00uninstall
+  fi
+else
+  rm -f /system/xposed.prop
+  rm -f /system/framework/XposedBridge.jar
+
+  restore_link   /system/bin/app_process32               0 2000 0755 u:object_r:zygote_exec:s0
+  restore_backup /system/bin/dex2oat                     0 2000 0755 u:object_r:dex2oat_exec:s0
+  restore_backup /system/bin/oatdump                     0 2000 0755
+  restore_backup /system/bin/patchoat                    0 2000 0755 u:object_r:dex2oat_exec:s0
+  restore_backup /system/lib/libart.so                   0    0 0644
+  restore_backup /system/lib/libart-compiler.so          0    0 0644
+  restore_backup /system/lib/libart-disassembler.so      0    0 0644
+  restore_backup /system/lib/libsigchain.so              0    0 0644
+  restore_backup /system/lib/libxposed_art.so            0    0 0644
+  if [ $IS64BIT ]; then
+    restore_link   /system/bin/app_process64             0 2000 0755 u:object_r:zygote_exec:s0
+    restore_backup /system/lib64/libart.so               0    0 0644
+    restore_backup /system/lib64/libart-compiler.so      0    0 0644
+    restore_backup /system/lib64/libart-disassembler.so  0    0 0644
+    restore_backup /system/lib64/libsigchain.so          0    0 0644
+    restore_backup /system/lib64/libxposed_art.so        0    0 0644
+  fi
+  if [ "$API" -ge "22" ]; then
+    find /system /vendor -type f -name '*.odex.gz.xposed' 2>/dev/null | while read f; do mv "$f" "${f%.xposed}"; done
+  fi
+fi
+
+umount /su 2>/dev/null
+umount /system
+
+ui_print "- Done"
+exit 0
