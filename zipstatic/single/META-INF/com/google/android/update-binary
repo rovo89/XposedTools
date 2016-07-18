@@ -132,7 +132,7 @@ prepare_systemless() {
     fi
   fi
 
-  SYSTEMLESS=true
+  VALID=true
 
   ui_print "- Mounting $SUIMG to /su"
   LOOPDEVICE=
@@ -236,7 +236,7 @@ install_and_link() {
     return
   fi
   install_nobackup $XPOSED $2 $3 $4 $5
-  if [[ "$SYSTEMLESS" = "false" ]]; then
+  if [ "$SYSTEMLESS" = "false" ]; then
     if [ ! -f $BACKUP ]; then
       mv $TARGET $BACKUP || exit 1
       ln -s $XPOSED $TARGET || exit 1
@@ -252,7 +252,7 @@ install_overwrite() {
   fi
   BACKUP="${1}.orig"
   NO_ORIG="${1}.no_orig"
-  if [[ "$SYSTEMLESS" = "false" ]]; then
+  if [ "$SYSTEMLESS" = "false" ]; then
     if [ ! -f $TARGET ]; then
       touch $NO_ORIG || exit 1
       set_perm $NO_ORIG 0 0 600
