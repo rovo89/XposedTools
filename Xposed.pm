@@ -330,10 +330,10 @@ sub compile($$$$$;$$$) {
 
     # Return the result
     if ($rc == 0) {
-        print colored('Build was successful!', 'green'), "\n\n";
+        print colored('Build was successful!', 'green'), "\n\n" if $sdk < 21;
         return 1;
     } else {
-        print colored('Build failed!', 'red'), "\n";
+        print colored('Build failed!', 'red'), "\n" if $sdk < 21;
         if ($silent) {
             print "Last 10 lines from the log:\n";
             my $tail = File::ReadBackwards->new($logfile);
@@ -344,7 +344,7 @@ sub compile($$$$$;$$$) {
             }
             print "   $_" foreach (@lines);
         }
-        print "\n";
+        print "\n" if $silent || $sdk < 21;
         return 0;
     }
 }
