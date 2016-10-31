@@ -393,12 +393,15 @@ sub create_zip($$) {
     # Flash the file (if requested)
     if ($opts{'f'}) {
         print_status("Flashing ZIP file...", 1);
+        my $shell = `adb shell id` =~ m/uid=0/ ? 'sh' : 'su';
         system("adb push $zippath /data/local/tmp/xposed.zip") == 0 || return 0;
         system("adb push $Bin/zipstatic/$platform/META-INF/com/google/android/update-binary /data/local/tmp/update-binary") == 0 || return 0;
         system("adb shell 'chmod 700 /data/local/tmp/update-binary'") == 0  || return 0;
-        system("adb shell su -c 'NO_UIPRINT=1 /data/local/tmp/update-binary 2 1 /data/local/tmp/xposed.zip'") == 0  || return 0;
+        system("adb shell $shell -c \\'NO_UIPRINT=1 /data/local/tmp/update-binary 2 1 /data/local/tmp/xposed.zip\\'") == 0  || return 0;
         system("adb shell 'rm /data/local/tmp/update-binary /data/local/tmp/xposed.zip'") == 0 || return 0;
-        system("adb shell su -c 'stop; sleep 2; start'") == 0 || return 0;
+        system("adb shell $shell -c stop") == 0 || return 0;
+        sleep(2);
+        system("adb shell $shell -c start") == 0 || return 0;
     }
 
     return 1;
