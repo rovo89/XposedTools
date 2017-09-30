@@ -183,7 +183,7 @@ sub compile($$;$) {
     }
 
     if ($platform eq 'host') {
-        $ENV{'HOST_PREFER_32_BIT'} = 'true';
+        $ENV{'HOST_PREFER_32_BIT'} = 'true' if $sdk < 24;
         $ENV{'ART_BUILD_HOST_NDEBUG'} = 'true';
         @targets = qw(
             out/host/linux-x86/bin/dex2oat
@@ -191,7 +191,7 @@ sub compile($$;$) {
         );
         @makefiles = qw(art/Android.mk);
     } elsif ($platform eq 'hostd') {
-        $ENV{'HOST_PREFER_32_BIT'} = 'true';
+        $ENV{'HOST_PREFER_32_BIT'} = 'true' if $sdk < 24;
         $ENV{'ART_BUILD_HOST_DEBUG'} = 'true';
         @targets = qw(
             out/host/linux-x86/bin/dex2oatd
@@ -268,20 +268,24 @@ sub get_compiled_files($$) {
             /system/bin/oatdump
             /system/bin/patchoat
         );
-    }
 
-    if ($platform eq 'arm64') {
-        # libart-disassembler is required by oatdump only, which is a 64-bit executable
-        delete $files{'/system/lib/libart-disassembler.so'};
+        if ($platform eq 'arm64') {
+            # libart-disassembler is required by oatdump only, which is a 64-bit executable
+            delete $files{'/system/lib/libart-disassembler.so'};
 
-        $files{$_} = $_ foreach qw(
-            /system/bin/app_process64_xposed
-            /system/lib64/libxposed_art.so
+            $files{$_} = $_ foreach qw(
+                /system/bin/app_process64_xposed
+                /system/lib64/libxposed_art.so
 
-            /system/lib64/libart.so
-            /system/lib64/libart-disassembler.so
-            /system/lib64/libsigchain.so
-        );
+                /system/lib64/libart.so
+                /system/lib64/libart-disassembler.so
+                /system/lib64/libsigchain.so
+            );
+
+            if ($sdk >= 24) {
+                $files{'/system/lib64/libart-compiler.so'} = '/system/lib64/libart-compiler.so';
+            }
+        }
     }
 
     return \%files;

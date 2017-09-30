@@ -16,7 +16,7 @@ use POSIX qw(strftime);
 use Term::ANSIColor;
 
 our $cfg;
-my $MAX_SUPPORTED_SDK = 23;
+my $MAX_SUPPORTED_SDK = 25;
 
 sub print_status($$) {
     my $text = shift;
@@ -293,7 +293,7 @@ sub compile($$$$$;$$$) {
     my $targets = shift;
     my $makefiles = shift;
     my $incremental = shift || 0;
-    my $silent = shift || 0;
+    my $silent = shift && $sdk < 24 || 0;
     my $logprefix = shift || 'build';
 
     # Initialize some general build parameters
