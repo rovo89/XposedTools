@@ -279,8 +279,6 @@ sub get_make_parameters($$) {
         push @params, 'TARGET_CPU_SMP=false';
     } elsif ($sdk < 23) {
         push @params, 'TARGET_CPU_SMP=true';
-    } elsif ($platform eq 'x86') {
-        push @params, 'arch_variant_cflags=\'-march=prescott -mno-ssse3\'';
     }
 
     return @params;
