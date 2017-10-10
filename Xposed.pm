@@ -77,7 +77,7 @@ sub check_requirements() {
         print_error('[Build][version] must begin with an integer');
         return 0;
     }
-    if ($version =~ m/^\d+\s*$/ && !$cfg->val('Build', 'official')) {
+    if ($version =~ m/^\d+(?:\.\d+)*\s*$/ && !$cfg->val('Build', 'official')) {
         print_error('[Build][version] should contain your custom suffix');
         return 0;
     }
@@ -186,7 +186,7 @@ sub get_version() {
 # Returns the Xposed version number and the suffix to be used in file names
 sub get_version_for_filename(;$) {
     my $version = shift || get_version();
-    $version =~ m/^(\d+)(.*)/;
+    $version =~ m/^(\d+(?:\.\d+)*)(.*)/;
     my ($version_num, $suffix) = ($1, $2);
     if ($suffix) {
         $suffix =~ s/[\s\/|*"?<:>%()]+/-/g;
@@ -244,7 +244,7 @@ sub get_collection_dir($$) {
 # Returns the directory to store symlinks to the ZIPs per versions
 sub get_version_dir(;$) {
     my ($version, $suffix) = get_version_for_filename(shift);
-    return sprintf('%s/versions/v%d%s', $cfg->val('General', 'outdir'), $version, $suffix);
+    return sprintf('%s/versions/v%s%s', $cfg->val('General', 'outdir'), $version, $suffix);
 }
 
 # Determines the mode that has to be passed to the "lunch" command

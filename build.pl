@@ -370,7 +370,7 @@ sub create_zip($$) {
 
     # Write the ZIP file to disk
     my ($version, $suffix) = Xposed::get_version_for_filename();
-    my $zipname = sprintf('xposed-v%d-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    my $zipname = sprintf('xposed-v%s-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
     my $zippath = $coldir . '/' . $zipname;
     print "$zippath\n";
     $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
