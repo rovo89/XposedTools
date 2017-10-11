@@ -67,7 +67,7 @@ sub create_zip() {
     $zip->writeToFileNamed($zipname) == AZ_OK || return 0;
 
     Xposed::sign_zip($zipname);
-    Xposed::gpg_sign($zipname);
+    Xposed::gpg_sign($zipname) if Xposed::should_gpg_sign();
 
     return 1;
 }

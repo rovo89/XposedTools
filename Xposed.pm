@@ -356,14 +356,15 @@ sub sign_zip($) {
     return 1;
 }
 
-sub gpg_sign($;$) {
+sub should_gpg_sign(;$) {
+    my $release_build = shift // 1;
+    my $sign = $cfg->val('GPG', 'sign');
+    return $sign && ($sign eq 'all' || $release_build && $sign eq 'release');
+}
+
+sub gpg_sign($) {
     my $file = shift;
     unlink($file . '.asc');
-
-    my $release = shift // 1;
-    my $sign = $cfg->val('GPG', 'sign');
-    return 1 if !$sign || $sign ne 'all' && !($release && $sign eq 'release');
-
     my $cmd = 'gpg -ab ';
     my $user = $cfg->val('GPG', 'user');
     $cmd .= "-u '$user' " if $user;

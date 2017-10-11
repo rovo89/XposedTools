@@ -110,6 +110,7 @@ Values for <steps> are provided as a comma-separated list of:
   collect   Collect compiled files and put them in the output directory.
   prop      Create the xposed.prop file.
   zip       Create the flashable ZIP file.
+  gpg       Sign the ZIP file with GPG (as configured).
 
 
 Examples:
@@ -152,6 +153,7 @@ sub all_in_one($$;$) {
         collect($platform, $sdk) || return 0;
         create_xposed_prop($platform, $sdk, !$silent) || return 0;
         create_zip($platform, $sdk) || return 0;
+        gpg_sign($platform, $sdk) || return 0;
     }
 
     print "\n\n";
@@ -376,7 +378,6 @@ sub create_zip($$) {
     $zip->writeToFileNamed($zippath) == AZ_OK || return 0;
 
     Xposed::sign_zip($zippath);
-    Xposed::gpg_sign($zippath, $opts{'r'});
 
     # Create a stable symlink to the latest version
     my $latestlink = $coldir . '/latest.zip';
@@ -409,6 +410,26 @@ sub create_zip($$) {
     }
 
     return 1;
+}
+
+# Sign the ZIP file with GPG.
+sub gpg_sign($$) {
+    my $platform = shift;
+    my $sdk = shift;
+
+    should_perform_step('gpg') || return 1;
+    Xposed::should_gpg_sign($opts{'r'}) || return 1;
+    print_status("Signing ZIP file with GPG...", 1);
+
+    # Calculate ZIP path.
+    my $coldir = Xposed::get_collection_dir($platform, $sdk);
+    my ($version, $suffix) = Xposed::get_version_for_filename();
+    my $zipname = sprintf('xposed-v%s-sdk%d-%s%s.zip', $version, $sdk, $platform, $suffix);
+    my $zippath = $coldir . '/' . $zipname;
+    print "$zippath.asc\n";
+
+    # Sign the file.
+    return Xposed::gpg_sign($zippath);
 }
 
 # Build XposedBridge.jar
