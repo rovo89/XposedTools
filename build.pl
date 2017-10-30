@@ -335,6 +335,10 @@ minsdk=$minsdk
 maxsdk=$maxsdk
 EOF
 
+    if ($sdk >= 24) {
+        $content .= "requires:fbe_aware=1\n"
+    }
+
     print PROPFILE $content;
     print $content if $print;
 
