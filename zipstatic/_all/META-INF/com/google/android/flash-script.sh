@@ -27,6 +27,10 @@ android_version() {
     21) echo '5.0 / SDK'$1;;
     22) echo '5.1 / SDK'$1;;
     23) echo '6.0 / SDK'$1;;
+    24) echo '7.0 / SDK'$1;;
+    25) echo '7.1 / SDK'$1;;
+    26) echo '8.0 / SDK'$1;;
+    27) echo '8.1 / SDK'$1;;
     *)  echo 'SDK'$1;;
   esac
 }
