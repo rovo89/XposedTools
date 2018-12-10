@@ -447,11 +447,12 @@ sub build_java() {
 
     print_status('Compiling...', 1);
     chdir($javadir);
-    system('./gradlew app:assembleRelease lint') == 0 || return 0;
+    #system('./gradlew app:assembleRelease lint') == 0 || return 0;
+    system('./gradlew app:assembleRelease') == 0 || return 0;
     print "\n";
 
     print_status('Copying APK to XposedBridge.jar...', 1);
-    my $base = $javadir . '/app/build/outputs/apk/app-release';
+    my $base = $javadir . '/app/build/outputs/apk/release/app-release';
     foreach my $suffix ('.apk', '-unaligned.apk', '-unsigned.apk') {
         my $file = $base . $suffix;
         if (-f $file) {
